@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/register_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Register Name: "
+        android:textAppearance="?attr/textAppearanceSubtitle2" />
+
+    <TextView
+        android:id="@+id/register_value_type"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Value Type: "
+        android:textAppearance="?attr/textAppearanceSubtitle2" />
+
+    <TextView
+        android:id="@+id/register_direction"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:text="Direction"
+        android:textAppearance="?attr/textAppearanceSubtitle2" />
+
+    <EditText
+        android:id="@+id/register_value_input"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:hint="Enter new value"
+        android:inputType="text" />
+
+    <TextView
+        android:id="@+id/register_description"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Description"
+        android:textAppearance="?attr/textAppearanceBodySmall" />
+
+</LinearLayout>

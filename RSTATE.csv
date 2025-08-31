@@ -1,0 +1,81 @@
+Pop-up Device States,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,
+State,Naming convention for UDB API calls,RSTATE_REQ Value,RSTATE_RPT Value,RSTATE_MAP Bit,Command Registers (GUI->UDB).  Use in UDB API call,Report Register Updates (UDB->GUI),#define (Use  RS_ prefix),RSTATE_RPT Condition for GUI request,Next state if OK,Next state if FAIL,Comment,GUI Status Bar Color,GUI Status Bar when RR_MISS >= 10,GUI Trigger Condition,GUI Response,Comment
+Deckbox not linked,,,,,,,,,,,This is the starting state for the GUI only.  Persistance indicates a Bluetooth connection error,,,GUI Initial state,Status:  No Deckbox Detected,
+Idle Request,popup_idle(),0,,0,none,,IDLE_REQ,Any,IDLE_ACK,n/a,Idle state. No acoustic operations and waiting for the next state change request,,,Bluetooth link established,,
+  Idle State Acknowledge,,,1,,,"MODEL, SN, FIRMWARE",IDLE_ACK,,IDLE_ACK,n/a,,,,,"Status UDB MODEL, SN, FIRMWARE",
+Initialize Request,popup_init(),10,,1,"AR_MFG, AR_MODEL, SOUNDSPEED, RANGE_MAX",,INIT_REQ,IDLE_ACK,INIT_PENDING,n/a,,,,"Pop-up selected from gear list or manual selection
+",,
+,,,11,,,none,INIT_PENDING,,INIT_OK,INIT_FAIL,,,,,,
+ Initialize Completed OK,,,12,,,"AR_ACP, RSTATE_MAP, RR_MAP, RRx_DIV, RRx_LGD, SELFTEST, AR_THOLD_DB",INIT_OK,,INIT_OK,INIT_OK,,,,,,
+ Initialize Completed FAIL,,,13,,,SELFTEST,INIT_FAIL,,INIT_FAIL,INIT_FAIL,,,,,,
+Connection Request,popup_connect(),20,,2,PIN_ID,"RR_MISS=0
+RR_CTR = 0",CON_REQ,INIT_OK,CON_ID1,n/a,Request to connect to a pop-up device.  ,,,Automatic upon INIT_OK,Display PIN_ID in status bar,
+ Connection in Progress: ID Packet #1,,,21,,,,CON_ID1,,"CON_ID2 if available, else CON_OK","CON_ID2 if available, else CON_ID1","If pop-up device has more than one connection packet, cycle through them.",,,,,
+ Connection in progress: ID Packet #2,,,22,,,"RR_CTR++
+(RR_MISS++)",CON_ID2,,CON_OK,CON_ID1,,,,,Update RETRY counter in status bar to reflect RR_MISS,
+ Connected to acoustic pop-up device,,,23,,,none,CON_OK,,CON_OK,n/a,,,,,,
+Single Ranging & Status Request,popup_srange(),30,,3,none,"RR_MISS=0
+RR_CTR=0",RNG_SINGLE_REQ,"CON_OK, RNG_SINGLE_xxx, RNG_CONT_xxx",RNG_SINGLE_PENDING,n/a,,,,TBD,,
+  Single Ranging Pending,,,31,,,none,RNG_SINGLE_PENDING,,RNG_SINGLE_OK,RNG_SINGLE_FAIL,,,,,TBD,
+  Single Ranging Completed OK,,,32,,,"RRR_VAL,
+RRx_VAL, 
+RR_CTR++",RNG_SINGLE_OK,,RNG_SINGLE_OK,n/a,,,,,TBD,
+  Single Ranging Completed FAIL,,,33,,,"RR_MISS++.,
+RR_CTR++",RNG_SINGLE_FAIL,,RNG_SINGLE_FAIL,n/a,,,,,TBD,
+Continuous Ranging & Status Request,popup_crange(),40,,4,none,"RR_MISS=0
+RR_CTR=0",RNG_CONT_REQ,"CON_OK, RNG_SINGLE_xxx, RNG_CONT_xxx",RNG_CONT_PENDING,n/a,,,,Automatic upon CON_OK,,
+ Ranging & Status Request Pending,,,41,,,none,RNG_CONT_PENDING,,RNG_CONT_OK,RNG_CONT_FAIL,,,,,,
+ Ranging & Status Request OK,,,42,,,"RRR_VAL,
+RRx_VAL, 
+RR_CTR++",RNG_CONT_OK,,RNG_CONT_PENDING,n/a,,,,,Display ranging distance and reporting values in status bar. Ring sound to indicate new range received,
+ Ranging & Status Request Fail,,,43,,,"RR_MISS++.,
+RR_CTR++",RNG_CONT_FAIL,,RNG_CONT_PENDING,n/a,,,,,Update RETRY counter in status bar to reflect RR_MISS,
+Arm and Trigger pop-up device,popup_trigger(),50,,5,none,"RR_MISS=0,
+RR_CTR=0",AT_REQ,"CON_OK, RNG_SINGLE_xxx, RNG_CONT_xxx",AT_ARM_PENDING,n/a,,,,Upon RELEASE selection from main menu,Display ARMING in status bar,
+ Arm pop-up device Pending,,,51,,,none,AT_ARM_PENDING,,AT_ARM_OK,AT_ARM_FAIL,,,,,,
+,,,52,,,"RR_MISS=0,
+RR_CTR=0",AT_ARM_OK,,AT_TRG_PENDING,n/a,,,,,Display TRIGGER in status bar,
+ Arm Release Completed FAIL,,,53,,,"RR_MISS++,
+RR_CTR++",AT_ARM_FAIL,,AT_ARM_PENDING,n/a,,,,,Update RETRY counter in status bar to reflect RR_MISS,
+ Trigger Release Pending,,,54,,,,AT_TRG_PENDING,,AT_TRG_OK,AT_TRG_FAIL,,,,,,
+ Trigger Release Completed OK,,,55,,,"RR_MISS=0,
+RR_CTR=0",AT_TRG_OK,,AT_TRG_OK,AT_TRG_OK,"If RNG_CONT_REQ is available, then GUI should request it to provide post-release ranging.  If not, wait for user input.",,,,"Display RELEASED in status bar. 
+Start count-down from 10 seconds plus 1 second per 2m of last ranging distance.
+Count-down alert
+Display POP-UP in status bar",
+ Trigger Release Completed FAIL,,,56,,,"RR_MISS++,
+RR_CTR++",AT_TRG_FAIL,,AT_TRG_PENDING,n/a,,,,,Update RETRY counter in status bar to reflect RR_MISS,
+Broadcast Release,popup_broadcast(),60,,6,GROUP_ID,RR_CTR=0,BCR_REQ,INIT_OK,BCR_PENDING,n/a,,,,Upon RELEASE selection from main menu,Open broadcast pop-up window,
+ Broadcast Release Pending,,,61,,,none,BCR_PENDING,,BCR_OK,n/a,,,,,,
+ Broadcast Release OK,,,62,,,RR_CTR++,BCR_OK,,BCR_PENDING,n/a,,,,,"Increment broadcast counter
+Close pop-up window if END is selected and go to IDLE_REQ
+
+",
+Public Interrogate for Quick ID,popup_pi_qid(),70,,7,none,"RR_CTR=0,
+RR_MISS=0",PI_QID_REQ,INIT_OK,PI_QID_PENDING,n/a,,,,Upon PUBLIC INT QID selection from main menu,Open public interrogate pop-up window,
+ Public QID Interrogate Pending,,,71,,,,PI_QID_PENDING,,PI_QID_DETECT,PI_QID_NODETECT,,,,,,
+ Public QID Interrogate Detection,,,72,,,"RR_CTR++,
+RRR_VAL,
+PUBLIC_QID,
+RR_MISS=0",PI_QID_DETECT,,PI_QID_PENDING,n/a,,,,,"Display QID and ranging distance in pop-up window
+Issue detection alert sound",
+ Public QID Interrogate No Detection,,,73,,,RR_MISS++,PI_QID_NODETECT,,PI_QID_PENDING,n/a,,,,,Update RETRY counter in status bar to reflect RR_MISS,
+Public Interrogate for Full ID,popup_pi_id(),80,,8,none,"RR_CTR=0
+RR_MISS=0",PI_ID_REQ,INIT_OK,PI_ID_PENDING,n/a,,,,Upon PUBLIC INT ID selection from main menu,Open public interrogate pop-up window,
+ Public ID Interrogate Pending,,,81,,,,PI_ID_PENDING,,PI_ID_DETECT,PI_ID_NODETECT,,,,,,
+ Public ID Interrogate Detection,,,82,,,"RR_CTR++,
+RRR_VAL,
+PUBLIC_ID,
+RR_MISS=0",PI_ID_DETECT,,PI_ID_PENDING,n/a,,,,,"Display QID and ranging distance in pop-up window
+Issue detection alert sound",
+ Public ID Interrogate No Detection,,,83,,,"RR_CTR++,
+RR_MISS++",PI_ID_NODETECT,,PI_ID_PENDING,n/a,,,,,Update RETRY counter in status bar to reflect RR_MISS,
+Noise Test Request,udb_nt(),90,,9,,"RR_CTR=0,
+RR_MISS=0",NT_REQ,IDLE_ACK,NT_PENDING,n/a,,,,Upon NOISE TEST selection from main menu,Open Noise Test Window,
+ Noise Test Pending,,,91,,,,NT_PENDING,,NT_OK,n/a,,,,,,
+ Noise Test Completed OK,,,92,,,"RR_CTR++
+AR_NOISE_DB",NT_OK,,NT_PENDING,n/a,,,,,"Adjust noise bar to reflect AR_NOISE_DB
+Issue AR_THOLD_DB in response to user adjustment of the detection threshold",
+Reboot Request,udb_rb(),100,,10,,,RB_OK,IDLE_ACK,RB_ACK,n/a,,,,Upon REBOOT or FIRMWARE UPDATE  selection from main menu,,A reboot can also be initiated by the RB command
+ Reboot Acknowledge,,,101,,,,RB_ACK,,n/a,n/a,,,,,TBD,
