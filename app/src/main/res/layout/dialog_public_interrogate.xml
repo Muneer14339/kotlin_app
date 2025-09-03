@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/interrogateTitleText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Public Interrogate"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="This will send a public interrogate signal to detect nearby fishing gear."
+        android:textSize="14sp"
+        android:layout_marginBottom="12dp" />
+
+    <TextView
+        android:id="@+id/interrogateResultText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="No results yet..."
+        android:textSize="14sp"
+        android:padding="8dp"
+        android:background="@color/gray"
+        android:textColor="@color/white"
+        android:gravity="center"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/interrogateRangeText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Range: --"
+        android:textSize="12sp"
+        android:gravity="center" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Keep this window open to monitor responses"
+        android:textSize="12sp"
+        android:textColor="@color/blue"
+        android:gravity="center"
+        android:layout_marginTop="12dp"
+        android:textStyle="italic" />
+
+</LinearLayout>

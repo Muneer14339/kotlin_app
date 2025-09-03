@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Broadcast Group Release"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="16dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="12dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Group ID: "
+            android:textSize="14sp"
+            android:layout_gravity="center_vertical" />
+
+        <EditText
+            android:id="@+id/groupIdEditText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:inputType="number"
+            android:hint="Enter Group ID"
+            android:text="1" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/broadcastStatusText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Ready to broadcast"
+        android:textSize="14sp"
+        android:gravity="center"
+        android:padding="8dp"
+        android:background="@color/gray"
+        android:textColor="@color/white"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/broadcastCounterText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Broadcast Count: 0"
+        android:textSize="12sp"
+        android:gravity="center" />
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="⚠️ This will trigger ALL devices in the specified group!"
+        android:textSize="12sp"
+        android:textColor="@color/red"
+        android:gravity="center"
+        android:layout_marginTop="12dp"
+        android:textStyle="bold" />
+
+</LinearLayout>

@@ -1,4 +1,65 @@
 <resources>
     <string name="app_name">UDB-Emulator</string>
     <string name="send_notification">Send Notification</string>
+
+    <!-- Status Messages -->
+    <string name="status_waiting_connection">Waiting For Connection...</string>
+    <string name="status_device_connected">Device Connected</string>
+    <string name="status_device_disconnected">Device Disconnected</string>
+    <string name="status_operation_idle">Idle</string>
+
+    <!-- Release State Messages -->
+    <string name="release_state_idle">Idle</string>
+    <string name="release_state_init">Initializing</string>
+    <string name="release_state_connecting">Connecting</string>
+    <string name="release_state_ranging">Ranging</string>
+    <string name="release_state_arming">Arming</string>
+    <string name="release_state_triggering">Triggering</string>
+    <string name="release_state_released">Released</string>
+    <string name="release_state_broadcast">Broadcasting</string>
+
+    <!-- Button Labels -->
+    <string name="button_idle">Idle</string>
+    <string name="button_init">Init</string>
+    <string name="button_connect">Connect</string>
+    <string name="button_single_range">Single Range</string>
+    <string name="button_continuous_range">Cont. Range</string>
+    <string name="button_trigger">🚨 TRIGGER</string>
+    <string name="button_broadcast">Broadcast</string>
+    <string name="button_quick_id">Quick ID</string>
+    <string name="button_full_id">Full ID</string>
+    <string name="button_noise_test">Noise Test</string>
+    <string name="button_simulate">🎛️ Simulate</string>
+
+    <!-- Dialog Messages -->
+    <string name="dialog_release_title">⚠️ RELEASE CONFIRMATION</string>
+    <string name="dialog_release_message">This will TRIGGER the acoustic release!\n\nAre you sure you want to proceed?</string>
+    <string name="dialog_release_confirm">YES - RELEASE</string>
+    <string name="dialog_broadcast_title">Broadcast Group Release</string>
+    <string name="dialog_firmware_title">Current Firmware Content</string>
+    <string name="dialog_simulation_title">UDB Sensor Simulation</string>
+
+    <!-- Sensor Labels -->
+    <string name="sensor_range">Range: %1$.2fm</string>
+    <string name="sensor_battery">Battery: %1$.1fV</string>
+    <string name="sensor_temperature">Temp: %1$.1f°C</string>
+    <string name="sensor_depth">Depth: %1$.1fm</string>
+    <string name="sensor_noise">%1$d dB</string>
+    <string name="sensor_retries">Retries: %1$d</string>
+
+    <!-- Error Messages -->
+    <string name="error_bluetooth_permissions">Bluetooth permissions denied</string>
+    <string name="error_bluetooth_message">Please grant Bluetooth permissions to use this app.</string>
+    <string name="error_invalid_state">Cannot perform this operation in current state</string>
+    <string name="error_firmware_upload">Firmware upload failed: %1$s</string>
+
+    <!-- Success Messages -->
+    <string name="success_firmware_upload">Firmware upload complete</string>
+    <string name="success_device_connected">Connected to %1$s</string>
+    <string name="success_operation_complete">Operation completed successfully</string>
+
+    <!-- Info Messages -->
+    <string name="info_firmware_empty">No firmware loaded yet.\n\nFirmware will appear here after RC-RI uploads new firmware via LD commands.</string>
+    <string name="info_simulation_note">💡 These values simulate real underwater sensor readings for testing RC-RI operations</string>
+    <string name="info_broadcast_warning">⚠️ This will trigger ALL devices in the specified group!</string>
 </resources>

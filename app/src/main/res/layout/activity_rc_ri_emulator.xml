@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -5,14 +6,66 @@
     android:orientation="vertical"
     android:padding="8dp">
 
-    <!-- Status Text -->
-    <TextView
-        android:id="@+id/statusText"
+    <!-- Enhanced Status Bar Section -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Status: Waiting For Connection..."
-        android:textSize="12sp"
-        android:textStyle="bold" />
+        android:orientation="vertical"
+        android:background="@drawable/status_bar_background"
+        android:padding="8dp"
+        android:layout_marginBottom="8dp">
+
+        <TextView
+            android:id="@+id/statusBarTextView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Status: Waiting For Connection..."
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/white"
+            android:background="@color/gray"
+            android:padding="8dp"
+            android:gravity="center" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="4dp">
+
+            <TextView
+                android:id="@+id/retryCountTextView"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Retries: 0"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/rangeDistanceTextView"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Range: 0.00m"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:gravity="center" />
+
+            <TextView
+                android:id="@+id/countdownTextView"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text=""
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/green"
+                android:gravity="end"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+
     <!-- Registers Section -->
     <LinearLayout
         android:layout_width="match_parent"
@@ -30,7 +83,6 @@
             android:text="Show Registers"
             android:textSize="12sp"
             app:cornerRadius="4dp" />
-
 
         <LinearLayout
             android:id="@+id/tableContainer"
@@ -99,12 +151,12 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Other Commands Section -->
+    <!-- Basic Commands Section -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingTop="8dp"
-        android:text="Other Commands"
+        android:text="Basic Commands"
         android:textSize="16sp"
         android:textStyle="bold" />
 
@@ -173,12 +225,12 @@
             app:cornerRadius="4dp" />
     </LinearLayout>
 
-    <!-- UDB RSTATE -->
+    <!-- UDB Release State Controls -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:paddingTop="8dp"
-        android:text="UDB Release State"
+        android:text="UDB Release State Control"
         android:textSize="16sp"
         android:textStyle="bold" />
 
@@ -192,7 +244,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="UDB Release State: "
+            android:text="Current State: "
             android:textAlignment="textStart"
             android:textSize="14sp"
             android:textStyle="bold" />
@@ -201,19 +253,23 @@
             android:id="@+id/releaseStateTextView"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
+            android:layout_weight="2"
             android:background="@color/red"
-            android:paddingRight="8dp"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
             android:text="CONNECTION ERROR"
-            android:textAlignment="textEnd"
+            android:textAlignment="center"
             android:textColor="@color/white"
-            android:textSize="14sp" />
+            android:textSize="12sp"
+            android:textStyle="bold" />
     </LinearLayout>
 
+    <!-- Basic State Buttons -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/popupIdleButton"
@@ -258,10 +314,146 @@
             app:cornerRadius="4dp" />
     </LinearLayout>
 
+    <!-- Advanced Operations Section -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="4dp"
+        android:text="Advanced Operations"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <!-- Ranging Controls -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/popupSrangeButton"
+            style="@style/Widget.Material3.Button"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_marginHorizontal="2dp"
+            android:layout_weight="1"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
+            android:text="Single Range"
+            android:textSize="11sp"
+            app:backgroundTint="@color/blue"
+            app:cornerRadius="4dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/popupCrangeButton"
+            style="@style/Widget.Material3.Button"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_marginHorizontal="2dp"
+            android:layout_weight="1"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
+            android:text="Cont. Range"
+            android:textSize="11sp"
+            app:backgroundTint="@color/blue"
+            app:cornerRadius="4dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/popupTriggerButton"
+            style="@style/Widget.Material3.Button"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_marginHorizontal="2dp"
+            android:layout_weight="1"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
+            android:text="🚨 TRIGGER"
+            android:textSize="11sp"
+            app:backgroundTint="@color/red"
+            app:cornerRadius="4dp" />
+    </LinearLayout>
+
+    <!-- Public & Broadcast Controls -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/popupBroadcastButton"
+            style="@style/Widget.Material3.Button"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_marginHorizontal="2dp"
+            android:layout_weight="1"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
+            android:text="Broadcast"
+            android:textSize="11sp"
+            app:backgroundTint="@color/purple"
+            app:cornerRadius="4dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/popupPIQIDButton"
+            style="@style/Widget.Material3.Button"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_marginHorizontal="2dp"
+            android:layout_weight="1"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
+            android:text="Quick ID"
+            android:textSize="11sp"
+            app:backgroundTint="@color/orange"
+            app:cornerRadius="4dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/popupPIIDButton"
+            style="@style/Widget.Material3.Button"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_marginHorizontal="2dp"
+            android:layout_weight="1"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
+            android:text="Full ID"
+            android:textSize="11sp"
+            app:backgroundTint="@color/orange"
+            app:cornerRadius="4dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/popupNTButton"
+            style="@style/Widget.Material3.Button"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_marginHorizontal="2dp"
+            android:layout_weight="1"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
+            android:text="Noise Test"
+            android:textSize="11sp"
+            app:backgroundTint="#FF6B6B"
+            app:cornerRadius="4dp" />
+    </LinearLayout>
+
     <!-- Command History Section -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:paddingTop="8dp"
         android:text="$ Command History"
         android:textSize="16sp"
         android:textStyle="bold" />
@@ -285,7 +477,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:padding="8dp"
-                android:text="Dollar Command History Appears Here..." />
+                android:text="Dollar Command History Appears Here..."
+                android:fontFamily="monospace"
+                android:textSize="10sp" />
         </ScrollView>
     </androidx.cardview.widget.CardView>
 

@@ -28,8 +28,15 @@ class RCRIEmulator : IEmulator {
         const val PASSWORD = "1776"
     }
 
-    private val bleCentralController: BLECentralController;
-    private var pendingAckCallback: ((DSSCommand) -> Unit)? = null;
+    private val bleCentralController: BLECentralController
+    private var pendingAckCallback: ((DSSCommand) -> Unit)? = null
+
+    // State management callbacks
+    private var onStateChanged: ((ReleaseState) -> Unit)? = null
+    private var onRangeReceived: ((Int) -> Unit)? = null
+    private var onDetectionAlert: (() -> Unit)? = null
+    private var onReleaseAlert: (() -> Unit)? = null
+    private var onRetryCountChanged: ((Int) -> Unit)? = null
 
     constructor(context: Context, bleCentralController: BLECentralController) : super(context) {
         this.bleCentralController = bleCentralController
@@ -39,6 +46,26 @@ class RCRIEmulator : IEmulator {
 
     fun setPendingAckCallback(callback: (DSSCommand) -> Unit) {
         pendingAckCallback = callback
+    }
+
+    fun setStateChangedCallback(callback: (ReleaseState) -> Unit) {
+        onStateChanged = callback
+    }
+
+    fun setRangeReceivedCallback(callback: (Int) -> Unit) {
+        onRangeReceived = callback
+    }
+
+    fun setDetectionAlertCallback(callback: () -> Unit) {
+        onDetectionAlert = callback
+    }
+
+    fun setReleaseAlertCallback(callback: () -> Unit) {
+        onReleaseAlert = callback
+    }
+
+    fun setRetryCountChangedCallback(callback: (Int) -> Unit) {
+        onRetryCountChanged = callback
     }
 
     override fun sendData(data: ByteArray) {
@@ -91,21 +118,24 @@ class RCRIEmulator : IEmulator {
         if (register == Registers.RSTATE_RPT) {
             handleRStateRPTValueChange()
         }
+
+        if (register == Registers.RRR_VAL) {
+            val rangeValue = register.getValue() as? Int ?: 0
+            onRangeReceived?.invoke(rangeValue)
+        }
     }
 
-
-    // Function to parse the Register Map change report (RM) command
     private fun parseRMCommand(command: DSSCommand) {
         require(command.command == StandardRequest.RM.toString()) { "Invalid command: Expected Register Map Change Report (RM) command" }
         require(command.data.size == 1) { "Invalid data size: Expected one data entry here" }
 
-        Log.d("UDBEmulator", "parseRMCommand")
+        Log.d("RCRIEmulator", "parseRMCommand")
 
         val registerMapBit = command.data[0].toLong()
 
         for (register in registerList) {
             if ((1L shl register.regMapBit) and registerMapBit != 0L) {
-                Log.d("UDBEmulator", "parseRMCommand: ${register.name}")
+                Log.d("RCRIEmulator", "parseRMCommand: ${register.name}")
 
                 this.sendCommand(
                     DSSCommand.createGTCommand(
@@ -166,13 +196,13 @@ class RCRIEmulator : IEmulator {
         )
     }
 
-
     private var rState: ReleaseState = ReleaseState.IDLE_REQ
         get() {
             return field
         }
         set(value) {
             field = value
+            onStateChanged?.invoke(value)
         }
 
     private fun updateRState(newRState: ReleaseState) {
@@ -214,7 +244,13 @@ class RCRIEmulator : IEmulator {
         this.rState = ReleaseState.CON_REQ
         Registers.RSTATE_REQ.setValue(0x20)
         this.sendSTCommand(Registers.RSTATE_REQ)
+
+        // Set PIN_ID for connection
+        Registers.PIN_ID.setValue(12345)
+        this.sendSTCommand(Registers.PIN_ID)
     }
+
+    // NEW IMPLEMENTATIONS - Missing Popup Functions
 
     fun popupSrange() {
         this.logHistory("------ popupSrange ------\r\n")
@@ -224,6 +260,10 @@ class RCRIEmulator : IEmulator {
 
         Registers.RSTATE_REQ.setValue(0x30)
         this.sendSTCommand(Registers.RSTATE_REQ)
+
+        // Reset counters
+        Registers.RR_MISS.setValue(0)
+        Registers.RR_CTR.setValue(0)
     }
 
     fun popupCrange() {
@@ -233,6 +273,10 @@ class RCRIEmulator : IEmulator {
         Registers.RSTATE_REQ.setValue(0x40)
         this.sendSTCommand(Registers.RSTATE_REQ)
         this.rState = ReleaseState.RNG_CONT_REQ
+
+        // Reset counters
+        Registers.RR_MISS.setValue(0)
+        Registers.RR_CTR.setValue(0)
     }
 
     fun popupTrigger() {
@@ -242,15 +286,26 @@ class RCRIEmulator : IEmulator {
         Registers.RSTATE_REQ.setValue(0x50)
         this.sendSTCommand(Registers.RSTATE_REQ)
         this.rState = ReleaseState.AT_REQ
+
+        // Reset counters
+        Registers.RR_MISS.setValue(0)
+        Registers.RR_CTR.setValue(0)
     }
 
-    fun popupBroadcast() {
+    fun popupBroadcast(groupId: Int = 1) {
         this.logHistory("------ popupBroadcast ------\r\n")
         require(this.rState == ReleaseState.INIT_OK)
 
         Registers.RSTATE_REQ.setValue(0x60)
         this.sendSTCommand(Registers.RSTATE_REQ)
         this.rState = ReleaseState.BCR_REQ
+
+        // Set GROUP_ID for broadcast
+        Registers.GROUP_ID.setValue(groupId)
+        this.sendSTCommand(Registers.GROUP_ID)
+
+        // Reset counter
+        Registers.RR_CTR.setValue(0)
     }
 
     fun popupPIQID() {
@@ -260,6 +315,10 @@ class RCRIEmulator : IEmulator {
         Registers.RSTATE_REQ.setValue(0x70)
         this.sendSTCommand(Registers.RSTATE_REQ)
         this.rState = ReleaseState.PI_QID_REQ
+
+        // Reset counters
+        Registers.RR_CTR.setValue(0)
+        Registers.RR_MISS.setValue(0)
     }
 
     fun popupPIID() {
@@ -269,6 +328,10 @@ class RCRIEmulator : IEmulator {
         Registers.RSTATE_REQ.setValue(0x80)
         this.sendSTCommand(Registers.RSTATE_REQ)
         this.rState = ReleaseState.PI_ID_REQ
+
+        // Reset counters
+        Registers.RR_CTR.setValue(0)
+        Registers.RR_MISS.setValue(0)
     }
 
     fun popupNT() {
@@ -278,6 +341,10 @@ class RCRIEmulator : IEmulator {
         Registers.RSTATE_REQ.setValue(0x90)
         this.sendSTCommand(Registers.RSTATE_REQ)
         this.rState = ReleaseState.NT_REQ
+
+        // Reset counters
+        Registers.RR_CTR.setValue(0)
+        Registers.RR_MISS.setValue(0)
     }
 
     fun popupRB() {
@@ -345,8 +412,11 @@ class RCRIEmulator : IEmulator {
             ReleaseState.RNG_SINGLE_PENDING -> {
                 if (rptValue == 0x32) {
                     this.rState = ReleaseState.RNG_SINGLE_OK
+                    onDetectionAlert?.invoke()
                 } else if (rptValue == 0x33) {
                     this.rState = ReleaseState.RNG_SINGLE_FAIL
+                    val missCount = Registers.RR_MISS.getValue() as? Int ?: 0
+                    onRetryCountChanged?.invoke(missCount)
                 }
             }
 
@@ -359,8 +429,11 @@ class RCRIEmulator : IEmulator {
             ReleaseState.RNG_CONT_PENDING -> {
                 if (rptValue == 0x42) {
                     this.rState = ReleaseState.RNG_CONT_OK
+                    onDetectionAlert?.invoke()
                 } else if (rptValue == 0x43) {
                     this.rState = ReleaseState.RNG_CONT_FAIL
+                    val missCount = Registers.RR_MISS.getValue() as? Int ?: 0
+                    onRetryCountChanged?.invoke(missCount)
                 }
             }
 
@@ -375,6 +448,8 @@ class RCRIEmulator : IEmulator {
                     this.rState = ReleaseState.AT_ARM_OK
                 } else if (rptValue == 0x53) {
                     this.rState = ReleaseState.AT_ARM_FAIL
+                    val missCount = Registers.RR_MISS.getValue() as? Int ?: 0
+                    onRetryCountChanged?.invoke(missCount)
                 }
             }
 
@@ -387,8 +462,11 @@ class RCRIEmulator : IEmulator {
             ReleaseState.AT_TRG_PENDING -> {
                 if (rptValue == 0x55) {
                     this.rState = ReleaseState.AT_TRG_OK
+                    onReleaseAlert?.invoke()
                 } else if (rptValue == 0x56) {
                     this.rState = ReleaseState.AT_TRG_FAIL
+                    val missCount = Registers.RR_MISS.getValue() as? Int ?: 0
+                    onRetryCountChanged?.invoke(missCount)
                 }
             }
 
@@ -413,8 +491,11 @@ class RCRIEmulator : IEmulator {
             ReleaseState.PI_QID_PENDING -> {
                 if (rptValue == 0x72) {
                     this.rState = ReleaseState.PI_QID_DETECT
+                    onDetectionAlert?.invoke()
                 } else if (rptValue == 0x73) {
                     this.rState = ReleaseState.PI_QID_NODETECT
+                    val missCount = Registers.RR_MISS.getValue() as? Int ?: 0
+                    onRetryCountChanged?.invoke(missCount)
                 }
             }
 
@@ -427,8 +508,11 @@ class RCRIEmulator : IEmulator {
             ReleaseState.PI_ID_PENDING -> {
                 if (rptValue == 0x82) {
                     this.rState = ReleaseState.PI_ID_DETECT
+                    onDetectionAlert?.invoke()
                 } else if (rptValue == 0x83) {
                     this.rState = ReleaseState.PI_ID_NODETECT
+                    val missCount = Registers.RR_MISS.getValue() as? Int ?: 0
+                    onRetryCountChanged?.invoke(missCount)
                 }
             }
 
@@ -458,6 +542,14 @@ class RCRIEmulator : IEmulator {
 
     fun getReleaseState(): ReleaseState {
         return this.rState
+    }
+
+    fun getCurrentRetryCount(): Int {
+        return Registers.RR_MISS.getValue() as? Int ?: 0
+    }
+
+    fun getCurrentRange(): Int {
+        return Registers.RRR_VAL.getValue() as? Int ?: 0
     }
 
     fun updateFirmwareFromUrl(firmwareUrl: String) {

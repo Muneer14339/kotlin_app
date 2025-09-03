@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -5,117 +6,267 @@
     android:orientation="vertical"
     android:padding="8dp">
 
-    <TextView
-        android:id="@+id/statusText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Status: Waiting For Connection..."
-        android:textSize="12sp"
-        android:textStyle="bold" />
-
-    <!-- Registers Section -->
+    <!-- Enhanced Status Section -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
+        android:background="@drawable/status_bar_background"
+        android:padding="8dp"
+        android:layout_marginBottom="8dp">
+
+        <TextView
+            android:id="@+id/connectionStatusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Status: Waiting For Connection..."
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@color/white"
+            android:background="@color/red"
+            android:padding="8dp"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/currentOperationText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Operation: Idle"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:padding="4dp"
+            android:gravity="center"
+            android:layout_marginTop="4dp" />
+    </LinearLayout>
+
+    <!-- Sensor Status Display -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Sensor Status"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:padding="4dp"
+            android:background="@drawable/status_bar_background">
+
+            <TextView
+                android:id="@+id/rangeValueText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Range: 0.00m"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:textColor="@color/blue" />
+
+            <TextView
+                android:id="@+id/batteryLevelText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Battery: 0.0V"
+                android:textSize="12sp"
+                android:gravity="center"
+                android:textColor="@color/green" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:padding="4dp"
+            android:background="@drawable/status_bar_background"
+            android:layout_marginStart="4dp">
+
+            <TextView
+                android:id="@+id/temperatureText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Temp: 0.0°C"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:textColor="@color/orange" />
+
+            <TextView
+                android:id="@+id/depthText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Depth: 0.0m"
+                android:textSize="12sp"
+                android:gravity="center"
+                android:textColor="@color/purple" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Noise Level Display -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:background="@drawable/status_bar_background"
+        android:layout_marginBottom="8dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Noise Level: "
+            android:textSize="12sp"
+            android:layout_gravity="center_vertical" />
+
+        <ProgressBar
+            android:id="@+id/noiseProgressBar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:max="100"
+            android:progress="30"
+            android:layout_gravity="center_vertical"
+            android:layout_marginHorizontal="8dp" />
+
+        <TextView
+            android:id="@+id/noiseValueText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="30 dB"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:layout_gravity="center_vertical" />
+    </LinearLayout>
+
+    <!-- Control Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/toggleButton"
+            style="@style/Widget.Material3.Button"
+            android:layout_width="120dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="8dp"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="4dp"
+            android:text="Show Registers"
+            android:textSize="11sp"
+            app:cornerRadius="4dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/viewFirmwareButton"
+            style="@style/Widget.Material3.Button"
+            android:layout_width="120dp"
+            android:layout_height="40dp"
+            android:layout_marginEnd="8dp"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="4dp"
+            android:text="View Firmware"
+            android:textSize="11sp"
+            app:cornerRadius="4dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/simulateButton"
+            style="@style/Widget.Material3.Button"
+            android:layout_width="120dp"
+            android:layout_height="40dp"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="4dp"
+            android:text="🎛️ Simulate"
+            android:textSize="11sp"
+            app:backgroundTint="@color/blue"
+            app:cornerRadius="4dp" />
+    </LinearLayout>
+
+    <!-- Hidden status text for compatibility -->
+    <TextView
+        android:id="@+id/statusText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:visibility="gone" />
+
+    <!-- Registers Section -->
+    <LinearLayout
+        android:id="@+id/tableContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone"
         app:cardElevation="2dp">
 
-        <LinearLayout
+        <TableLayout
+            android:id="@+id/tableHeader"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="start"
-            android:orientation="horizontal">
+            android:stretchColumns="1,2">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/toggleButton"
-                style="@style/Widget.Material3.Button"
-                android:layout_width="150dp"
-                android:layout_height="40dp"
-                android:layout_marginEnd="8dp"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="4dp"
-                android:text="Show Registers"
-                android:textSize="12sp"
-                app:cornerRadius="4dp" />
+            <TableRow
+                android:background="?attr/colorPrimary"
+                android:paddingHorizontal="4dp"
+                android:paddingVertical="4dp">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/viewFirmwareButton"
-                style="@style/Widget.Material3.Button"
-                android:layout_width="150dp"
-                android:layout_height="40dp"
-                android:layout_gravity="end"
-                android:paddingHorizontal="12dp"
-                android:paddingVertical="4dp"
-                android:text="View Firmware"
-                android:textSize="12sp"
-                app:cornerRadius="4dp" />
-        </LinearLayout>
+                <TextView
+                    android:layout_width="40dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="center"
+                    android:padding="4dp"
+                    android:text="No"
+                    android:textColor="@color/white"
+                    android:textStyle="bold" />
 
-        <LinearLayout
-            android:id="@+id/tableContainer"
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:padding="4dp"
+                    android:text="Name"
+                    android:textColor="@color/white"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:padding="4dp"
+                    android:text="Value"
+                    android:textColor="@color/white"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="100dp"
+                    android:padding="4dp"
+                    android:text="Direction"
+                    android:textColor="@color/white"
+                    android:textStyle="bold" />
+            </TableRow>
+        </TableLayout>
+
+        <ScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:visibility="gone">
+            android:layout_marginTop="4dp"
+            android:fillViewport="true">
 
             <TableLayout
-                android:id="@+id/tableHeader"
+                android:id="@+id/tableData"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:stretchColumns="1,2">
-
-                <TableRow
-                    android:background="?attr/colorPrimary"
-                    android:paddingHorizontal="4dp"
-                    android:paddingVertical="4dp">
-
-                    <TextView
-                        android:layout_width="40dp"
-                        android:layout_height="wrap_content"
-                        android:gravity="center"
-                        android:padding="4dp"
-                        android:text="No"
-                        android:textColor="@color/white"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_weight="1"
-                        android:padding="4dp"
-                        android:text="Name"
-                        android:textColor="@color/white"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_weight="1"
-                        android:padding="4dp"
-                        android:text="Value"
-                        android:textColor="@color/white"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="100dp"
-                        android:padding="4dp"
-                        android:text="Direction"
-                        android:textColor="@color/white"
-                        android:textStyle="bold" />
-                </TableRow>
-            </TableLayout>
-
-            <ScrollView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:fillViewport="true">
-
-                <TableLayout
-                    android:id="@+id/tableData"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:stretchColumns="1,2" />
-            </ScrollView>
-        </LinearLayout>
+                android:stretchColumns="1,2" />
+        </ScrollView>
     </LinearLayout>
 
     <!-- Command History Section -->
@@ -144,7 +295,10 @@
                 android:id="@+id/historyTextView"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Dollar Command History Appears Here..." />
+                android:padding="8dp"
+                android:text="Dollar Command History Appears Here..."
+                android:fontFamily="monospace"
+                android:textSize="10sp" />
         </ScrollView>
     </androidx.cardview.widget.CardView>
 
@@ -160,7 +314,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:hint="Enter Dollar Command Here"
+            android:hint="Manual Command Input (Advanced)"
             android:minHeight="48dp" />
 
         <com.google.android.material.button.MaterialButton

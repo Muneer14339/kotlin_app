@@ -9,6 +9,10 @@ import com.dss.emulator.register.Direction
 import com.dss.emulator.register.Register
 import com.dss.emulator.register.Registers
 import com.dss.emulator.register.registerMap
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -22,10 +26,14 @@ class UDBEmulator : IEmulator {
         const val PASSWORD = "1776"
     }
 
-
-    private val blePeripheralController: BLEPeripheralController;
+    private val blePeripheralController: BLEPeripheralController
     private val firmwareLines: MutableList<String> = mutableListOf()
     private val appContext: Context
+
+    // Enhanced state management
+    private var currentRangeValue: Int = Random.nextInt(1000, 5000) // Random range in cm
+    private var noiseLevel: Int = Random.nextInt(20, 60) // Random noise level in dB
+    private var detectionThreshold: Int = 45 // Default detection threshold in dB
 
     constructor(
         context: Context, blePeripheralController: BLEPeripheralController
@@ -35,14 +43,42 @@ class UDBEmulator : IEmulator {
         this.setSource("UDB")
         this.setDestination("RC-RI")
 
-        // add random firmware lines
-//        for (i in 0..100) {
-//            firmwareLines.add("Line $i: ${Random.nextInt(1000)}")
-//        }
+        // Initialize default register values
+        initializeDefaultValues()
+    }
+
+    private fun initializeDefaultValues() {
+        Registers.MODEL.setValue(12345)
+        Registers.SN.setValue(67890)
+        Registers.FIRMWARE.setValue(0x0123)
+        Registers.SELFTEST.setValue(0x0000) // All tests pass
+        Registers.AR_ACP.setValue(101) // ARC-1 LF protocol
+        Registers.AR_THOLD_DB.setValue(detectionThreshold)
+        Registers.AR_NOISE_DB.setValue(noiseLevel)
+
+        // Initialize range report registers
+        Registers.RR1_DIV.setValue(100)
+        Registers.RR1_LGD.setValue("Battery V")
+        Registers.RR2_DIV.setValue(10)
+        Registers.RR2_LGD.setValue("Temp °C")
+        Registers.RR3_DIV.setValue(100)
+        Registers.RR3_LGD.setValue("Depth m")
+        Registers.RR4_DIV.setValue(1)
+        Registers.RR4_LGD.setValue("Status")
+
+        // Set default status report values
+        Registers.RR1_VAL.setValue(Random.nextInt(1200, 1500)) // 12-15V battery
+        Registers.RR2_VAL.setValue(Random.nextInt(50, 250)) // 5-25°C temperature
+        Registers.RR3_VAL.setValue(Random.nextInt(500, 2000)) // 5-20m depth
+        Registers.RR4_VAL.setValue(1) // Status OK
     }
 
     fun getFirmwareLines(): List<String> {
         return firmwareLines
+    }
+
+    fun clearFirmware() {
+        firmwareLines.clear()
     }
 
     override fun sendData(data: ByteArray) {
@@ -57,8 +93,6 @@ class UDBEmulator : IEmulator {
         TODO("Not yet implemented")
     }
 
-
-    // Function to parse the GET (GT) command
     private fun parseGTCommand(command: DSSCommand) {
         require(command.command == StandardRequest.GT.toString()) { "Invalid command: Expected GET (GT) command" }
         require(command.data.size == 1) { "Invalid data size: Expected exactly one data entry" }
@@ -81,7 +115,6 @@ class UDBEmulator : IEmulator {
         )
     }
 
-    // Function to parse the SET (ST) command
     private fun parseSTCommand(command: DSSCommand) {
         require(command.command == StandardRequest.ST.toString()) { "Invalid command: Expected SET (ST) command" }
         require(command.data.size == 2) { "Invalid data size: Expected exactly two data entries" }
@@ -91,12 +124,15 @@ class UDBEmulator : IEmulator {
             ?: throw IllegalArgumentException("Invalid register: '$registerName' not found in register map")
         Log.d("UDBEmulator", "parseSTCommand: $registerName $registerValue")
 
-
         if (register.direction == Direction.GUI_TO_UDB || register.direction == Direction.BOTH) {
             register.setValueString(registerValue)
 
             if (register == Registers.RSTATE_REQ) {
                 handleRStateREQValueChange()
+            }
+
+            if (register == Registers.AR_THOLD_DB) {
+                detectionThreshold = register.getValue() as? Int ?: 45
             }
         }
 
@@ -113,7 +149,6 @@ class UDBEmulator : IEmulator {
         )
     }
 
-    // Function to parse the GET ID (GI) command
     private fun parseGICommand(command: DSSCommand) {
         require(command.command == StandardRequest.GI.toString()) { "Invalid command: Expected GET ID (GI) command" }
         require(command.data.isEmpty()) { "Invalid data size: Expected no data entries" }
@@ -128,7 +163,6 @@ class UDBEmulator : IEmulator {
         )
     }
 
-    // Function to parse the SET ID (SI) command
     private fun parseSICommand(command: DSSCommand) {
         require(command.command == StandardRequest.SI.toString()) { "Invalid command: Expected SET ID (SI) command" }
         require(command.data.size == 2) { "Invalid data size: Expected exactly two data entries" }
@@ -151,7 +185,6 @@ class UDBEmulator : IEmulator {
         )
     }
 
-    // Function to parse the SET Protected Register (SP) command
     private fun parseSPCommand(command: DSSCommand) {
         require(command.command == StandardRequest.SP.toString()) { "Invalid command: Expected SET Protected Register (SP) command" }
         require(command.data.size == 3) { "Invalid data size: Expected exactly three data entries" }
@@ -159,9 +192,7 @@ class UDBEmulator : IEmulator {
         val registerName = command.data[1]
         val registerValue = command.data[2]
 
-        Log.d(
-            "UDBEmulator", "parseSPCommand: $password $registerName $registerValue"
-        )
+        Log.d("UDBEmulator", "parseSPCommand: $password $registerName $registerValue")
 
         if (password == PASSWORD) {
             val register = registerMap[registerName]
@@ -179,24 +210,32 @@ class UDBEmulator : IEmulator {
                     )
                 }
             )
-        }
-        this.sendCommand(
-            DSSCommand.createNOResponse(
-                this.getDestination(), this.getSource(), command.commandId
+        } else {
+            this.sendCommand(
+                DSSCommand.createNOResponse(
+                    this.getDestination(), this.getSource(), command.commandId
+                )
             )
-        )
+        }
     }
 
-    // Function to parse the Factory Test (FT) command
     private fun parseFTCommand(command: DSSCommand) {
         require(command.command == StandardRequest.FT.toString()) { "Invalid command: Expected Factory Test (FT) command" }
-        // Implement the factory test initiation logic here
-        // For demonstration, we'll return an OK response
-
         Log.d("UDBEmulator", "parseFactoryTestCommand")
+
+        // Simulate factory test
+        CoroutineScope(Dispatchers.IO).launch {
+            delay(2000)
+            this@UDBEmulator.sendCommand(
+                DSSCommand.createOKResponse(
+                    this@UDBEmulator.getDestination(),
+                    this@UDBEmulator.getSource(),
+                    command.commandId
+                )
+            )
+        }
     }
 
-    // Function to parse the firmware load (LD) command
     private fun parseLDCommand(command: DSSCommand) {
         require(command.command == StandardRequest.LD.toString()) { "Invalid command: Expected LD (firmware load) command" }
         require(command.data.size == 1) { "Expected exactly one data entry in LD command" }
@@ -211,7 +250,6 @@ class UDBEmulator : IEmulator {
         )
     }
 
-    // Function to parse the Reboot (RB) command
     private fun parseRBCommand(command: DSSCommand) {
         require(command.command == StandardRequest.RB.toString()) { "Invalid command: Expected Reboot (RB) command" }
         Log.d("UDBEmulator", "Reboot requested. Applying firmware...")
@@ -230,8 +268,6 @@ class UDBEmulator : IEmulator {
         } catch (e: Exception) {
             Log.e("UDBEmulator", "Failed to save firmware: ${e.message}")
         }
-
-//        firmwareLines.clear()
 
         this.sendCommand(
             DSSCommand.createOKResponse(this.getDestination(), this.getSource(), command.commandId)
@@ -263,8 +299,10 @@ class UDBEmulator : IEmulator {
             )
         }
 
-        Thread.sleep(50)
-        Registers.REG_MAP.setValue(0L)
+        CoroutineScope(Dispatchers.IO).launch {
+            delay(50)
+            Registers.REG_MAP.setValue(0L)
+        }
     }
 
     private fun dispatchRegisterChange(register: Register) {
@@ -273,204 +311,336 @@ class UDBEmulator : IEmulator {
         Registers.REG_MAP.setValue(regMap)
     }
 
+    // Enhanced state handling for all new operations
     private fun handleRStateREQValueChange() {
         var rStateREQ = Registers.RSTATE_REQ.getValue()
 
         Log.d("UDBEmulator", "handleRStateREQValueChange: $rStateREQ")
 
-        when (rStateREQ) {
-            0x00 -> { // IDLE_REQ
-                Log.d("UDBEmulator", "handleRStateREQValueChange: IDLE_REQ")
-                Registers.RSTATE_MAP.setValue(1 shl 0)
-                dispatchRegisterChange(Registers.MODEL)
-                dispatchRegisterChange(Registers.SN)
-                dispatchRegisterChange(Registers.FIRMWARE)
-                sendRMCommand()
-
-
-                Thread.sleep(1000)
-                Registers.RSTATE_RPT.setValue(0x1) // IDLE_ACK
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
+        CoroutineScope(Dispatchers.IO).launch {
+            when (rStateREQ) {
+                0x00 -> handleIdleRequest()
+                0x10 -> handleInitRequest()
+                0x20 -> handleConnectionRequest()
+                0x30 -> handleSingleRangeRequest()
+                0x40 -> handleContinuousRangeRequest()
+                0x50 -> handleTriggerRequest()
+                0x60 -> handleBroadcastRequest()
+                0x70 -> handlePublicQuickIDRequest()
+                0x80 -> handlePublicFullIDRequest()
+                0x90 -> handleNoiseTestRequest()
+                0x64 -> handleRebootRequest()
             }
+        }
+    }
 
-            0x10 -> { // INIT_REQ
-                Log.d("UDBEmulator", "handleRStateREQValueChange: INIT_REQ")
-                Registers.RSTATE_MAP.setValue(1 shl 1)
-                Registers.RSTATE_RPT.setValue(0x11) // INIT_PENDING
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
+    private suspend fun handleIdleRequest() {
+        Log.d("UDBEmulator", "handleIdleRequest")
+        Registers.RSTATE_MAP.setValue(1 shl 0)
+        dispatchRegisterChange(Registers.MODEL)
+        dispatchRegisterChange(Registers.SN)
+        dispatchRegisterChange(Registers.FIRMWARE)
+        sendRMCommand()
 
-                Thread.sleep(1000)
-                Registers.RR1_LGD.setValue("RR1_LGD")
-                Registers.RR2_LGD.setValue("RR2_LGD")
-                Registers.RR3_LGD.setValue("RR3_LGD")
-                Registers.RR4_LGD.setValue("RR4_LGD")
+        delay(1000)
+        Registers.RSTATE_RPT.setValue(0x1) // IDLE_ACK
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
+    }
 
-                // Simulate initialization process
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                dispatchRegisterChange(Registers.AR_ACP)
-                dispatchRegisterChange(Registers.RSTATE_MAP)
-                dispatchRegisterChange(Registers.RR_MAP)
-                dispatchRegisterChange(Registers.RR1_DIV)
-                dispatchRegisterChange(Registers.RR1_LGD)
-                dispatchRegisterChange(Registers.RR2_DIV)
-                dispatchRegisterChange(Registers.RR2_LGD)
-                dispatchRegisterChange(Registers.RR3_DIV)
-                dispatchRegisterChange(Registers.RR3_LGD)
-                dispatchRegisterChange(Registers.RR4_DIV)
-                dispatchRegisterChange(Registers.RR4_LGD)
-                dispatchRegisterChange(Registers.SELFTEST)
-                dispatchRegisterChange(Registers.AR_THOLD_DB)
-                sendRMCommand()
+    private suspend fun handleInitRequest() {
+        Log.d("UDBEmulator", "handleInitRequest")
+        Registers.RSTATE_MAP.setValue(1 shl 1)
+        Registers.RSTATE_RPT.setValue(0x11) // INIT_PENDING
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
 
-                Thread.sleep(2000)
-                Registers.RSTATE_RPT.setValue(0x12) // INIT_PENDING
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
-            }
+        delay(2000) // Simulate initialization time
 
-            0x20 -> { // CON_REQ
-                Log.d("UDBEmulator", "handleRStateREQValueChange: CON_REQ")
-                Registers.RSTATE_MAP.setValue(1 shl 2)
-                Registers.RSTATE_RPT.setValue(0x21) // CON_ID1
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
+        // Update all relevant registers
+        Registers.RR1_LGD.setValue("Battery V")
+        Registers.RR2_LGD.setValue("Temp °C")
+        Registers.RR3_LGD.setValue("Depth m")
+        Registers.RR4_LGD.setValue("Status")
 
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        dispatchRegisterChange(Registers.AR_ACP)
+        dispatchRegisterChange(Registers.RSTATE_MAP)
+        dispatchRegisterChange(Registers.RR_MAP)
+        dispatchRegisterChange(Registers.RR1_DIV)
+        dispatchRegisterChange(Registers.RR1_LGD)
+        dispatchRegisterChange(Registers.RR2_DIV)
+        dispatchRegisterChange(Registers.RR2_LGD)
+        dispatchRegisterChange(Registers.RR3_DIV)
+        dispatchRegisterChange(Registers.RR3_LGD)
+        dispatchRegisterChange(Registers.RR4_DIV)
+        dispatchRegisterChange(Registers.RR4_LGD)
+        dispatchRegisterChange(Registers.SELFTEST)
+        dispatchRegisterChange(Registers.AR_THOLD_DB)
+        sendRMCommand()
 
-                Thread.sleep(2000)
-                // Simulate connection process
-                Registers.RSTATE_RPT.setValue(0x22) // CON_ID2
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
+        delay(1000)
+        Registers.RSTATE_RPT.setValue(0x12) // INIT_OK
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
+    }
 
+    private suspend fun handleConnectionRequest() {
+        Log.d("UDBEmulator", "handleConnectionRequest")
+        Registers.RSTATE_MAP.setValue(1 shl 2)
 
-                Thread.sleep(2000)
-                Registers.RSTATE_RPT.setValue(0x23) // CON_OK
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
-            }
+        // Connection sequence with ID packets
+        Registers.RSTATE_RPT.setValue(0x21) // CON_ID1
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
 
-            0x30 -> { // RNG_SINGLE_REQ
-                Log.d("UDBEmulator", "handleRStateREQValueChange: RNG_SINGLE_REQ")
-                Registers.RSTATE_MAP.setValue(1 shl 3)
-                Registers.RSTATE_RPT.setValue(0x31) // RNG_SINGLE_PENDING
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
+        delay(2000)
+        Registers.RSTATE_RPT.setValue(0x22) // CON_ID2
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
 
-                // Simulate ranging process
-                Registers.RSTATE_RPT.setValue(0x32) // RNG_SINGLE_OK
-//                dispatchRegisterChange(Registers.RRR_VAL)
-//                dispatchRegisterChange(Registers.RRx_VAL)
-                dispatchRegisterChange(Registers.RR_CTR)
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
-            }
+        delay(2000)
+        Registers.RSTATE_RPT.setValue(0x23) // CON_OK
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
+    }
 
-            0x40 -> { // RNG_CONT_REQ
-                Log.d("UDBEmulator", "handleRStateREQValueChange: RNG_CONT_REQ")
-                Registers.RSTATE_MAP.setValue(1 shl 4)
-                Registers.RSTATE_RPT.setValue(0x41) // RNG_CONT_PENDING
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
+    private suspend fun handleSingleRangeRequest() {
+        Log.d("UDBEmulator", "handleSingleRangeRequest")
+        Registers.RSTATE_MAP.setValue(1 shl 3)
+        Registers.RSTATE_RPT.setValue(0x31) // RNG_SINGLE_PENDING
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
 
-                // Simulate continuous ranging process
-                Registers.RSTATE_RPT.setValue(0x42) // RNG_CONT_OK
+        delay(3000) // Simulate ranging time
+
+        // Generate random range with some variance
+        currentRangeValue = Random.nextInt(1000, 5000)
+        Registers.RRR_VAL.setValue(currentRangeValue)
+
+        // Update status reports
+        updateStatusReports()
+
+        val rrCtr = (Registers.RR_CTR.getValue() as? Int ?: 0) + 1
+        Registers.RR_CTR.setValue(rrCtr)
+
+        Registers.RSTATE_RPT.setValue(0x32) // RNG_SINGLE_OK
+        dispatchRegisterChange(Registers.RRR_VAL)
+        dispatchRegisterChange(Registers.RR1_VAL)
+        dispatchRegisterChange(Registers.RR2_VAL)
+        dispatchRegisterChange(Registers.RR3_VAL)
+        dispatchRegisterChange(Registers.RR4_VAL)
+        dispatchRegisterChange(Registers.RR_CTR)
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
+    }
+
+    private suspend fun handleContinuousRangeRequest() {
+        Log.d("UDBEmulator", "handleContinuousRangeRequest")
+        Registers.RSTATE_MAP.setValue(1 shl 4)
+        Registers.RSTATE_RPT.setValue(0x41) // RNG_CONT_PENDING
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
+
+        delay(2000)
+        Registers.RSTATE_RPT.setValue(0x42) // RNG_CONT_OK
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
+
+        // Start continuous ranging loop
+        startContinuousRanging()
+    }
+
+    private fun startContinuousRanging() {
+        CoroutineScope(Dispatchers.IO).launch {
+            while (Registers.RSTATE_RPT.getValue() == 0x42) {
+                delay(5000) // Range every 5 seconds
+
+                // Add some drift to range
+                currentRangeValue += Random.nextInt(-50, 51)
+                currentRangeValue = currentRangeValue.coerceIn(500, 8000)
+
+                Registers.RRR_VAL.setValue(currentRangeValue)
+                updateStatusReports()
+
+                val rrCtr = (Registers.RR_CTR.getValue() as? Int ?: 0) + 1
+                Registers.RR_CTR.setValue(rrCtr)
+
                 dispatchRegisterChange(Registers.RRR_VAL)
-//                dispatchRegisterChange(Registers.RRx_VAL)
+                dispatchRegisterChange(Registers.RR1_VAL)
+                dispatchRegisterChange(Registers.RR2_VAL)
+                dispatchRegisterChange(Registers.RR3_VAL)
+                dispatchRegisterChange(Registers.RR4_VAL)
                 dispatchRegisterChange(Registers.RR_CTR)
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
-            }
-
-            0x50 -> { // AT_REQ
-                Log.d("UDBEmulator", "handleRStateREQValueChange: AT_REQ")
-                Registers.RSTATE_MAP.setValue(1 shl 5)
-                Registers.RSTATE_RPT.setValue(0x51) // AT_ARM_PENDING
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
-
-                // Simulate arm process
-                Registers.RSTATE_RPT.setValue(0x52) // AT_ARM_OK
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
-
-                // Simulate trigger process
-                Registers.RSTATE_RPT.setValue(0x54) // AT_TRG_PENDING
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
-
-                Registers.RSTATE_RPT.setValue(0x55) // AT_TRG_OK
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
-            }
-
-            0x60 -> { // BCR_REQ
-                Log.d("UDBEmulator", "handleRStateREQValueChange: BCR_REQ")
-                Registers.RSTATE_MAP.setValue(1 shl 6)
-                Registers.RSTATE_RPT.setValue(0x61) // BCR_PENDING
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
-
-                Registers.RSTATE_RPT.setValue(0x62) // BCR_OK
-                dispatchRegisterChange(Registers.RR_CTR)
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
-            }
-
-            0x70 -> { // PI_QID_REQ
-                Log.d("UDBEmulator", "handleRStateREQValueChange: PI_QID_REQ")
-                Registers.RSTATE_MAP.setValue(1 shl 7)
-                Registers.RSTATE_RPT.setValue(0x71) // PI_QID_PENDING
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
-
-                // Simulate QID detection
-                Registers.RSTATE_RPT.setValue(0x72) // PI_QID_DETECT
-                dispatchRegisterChange(Registers.RR_CTR)
-                dispatchRegisterChange(Registers.RRR_VAL)
-                dispatchRegisterChange(Registers.PUBLIC_QID)
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
-            }
-
-            0x80 -> { // PI_ID_REQ
-                Log.d("UDBEmulator", "handleRStateREQValueChange: PI_ID_REQ")
-                Registers.RSTATE_MAP.setValue(1 shl 8)
-                Registers.RSTATE_RPT.setValue(0x81) // PI_ID_PENDING
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
-
-                // Simulate ID detection
-                Registers.RSTATE_RPT.setValue(0x82) // PI_ID_DETECT
-                dispatchRegisterChange(Registers.RR_CTR)
-                dispatchRegisterChange(Registers.RRR_VAL)
-                dispatchRegisterChange(Registers.PUBLIC_ID)
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
-            }
-
-            0x90 -> { // NT_REQ
-                Log.d("UDBEmulator", "handleRStateREQValueChange: NT_REQ")
-                Registers.RSTATE_MAP.setValue(1 shl 9)
-                Registers.RSTATE_RPT.setValue(0x91) // NT_PENDING
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
-
-                Registers.RSTATE_RPT.setValue(0x92) // NT_OK
-                dispatchRegisterChange(Registers.RR_CTR)
-                dispatchRegisterChange(Registers.AR_NOISE_DB)
-                dispatchRegisterChange(Registers.RSTATE_RPT)
-                sendRMCommand()
-            }
-
-            0x64 -> { // RB_REQ
-                Log.d("UDBEmulator", "handleRStateREQValueChange: RB_REQ")
-                Registers.RSTATE_MAP.setValue(1 shl 10)
-                Registers.RSTATE_RPT.setValue(0x65) // RB_ACK
-                dispatchRegisterChange(Registers.RSTATE_RPT)
                 sendRMCommand()
             }
         }
+    }
+
+    private suspend fun handleTriggerRequest() {
+        Log.d("UDBEmulator", "handleTriggerRequest")
+        Registers.RSTATE_MAP.setValue(1 shl 5)
+
+        // Arm sequence
+        Registers.RSTATE_RPT.setValue(0x51) // AT_ARM_PENDING
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
+
+        delay(3000) // Arming time
+        Registers.RSTATE_RPT.setValue(0x52) // AT_ARM_OK
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
+
+        delay(1000)
+        // Trigger sequence
+        Registers.RSTATE_RPT.setValue(0x54) // AT_TRG_PENDING
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
+
+        delay(2000) // Trigger time
+        Registers.RSTATE_RPT.setValue(0x55) // AT_TRG_OK (RELEASED!)
+
+        // Update status to indicate release
+        Registers.RR4_VAL.setValue(0) // Status: Released
+
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        dispatchRegisterChange(Registers.RR4_VAL)
+        sendRMCommand()
+    }
+
+    private suspend fun handleBroadcastRequest() {
+        Log.d("UDBEmulator", "handleBroadcastRequest")
+        Registers.RSTATE_MAP.setValue(1 shl 6)
+        Registers.RSTATE_RPT.setValue(0x61) // BCR_PENDING
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
+
+        delay(2000)
+        val rrCtr = (Registers.RR_CTR.getValue() as? Int ?: 0) + 1
+        Registers.RR_CTR.setValue(rrCtr)
+
+        Registers.RSTATE_RPT.setValue(0x62) // BCR_OK
+        dispatchRegisterChange(Registers.RR_CTR)
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
+    }
+
+    private suspend fun handlePublicQuickIDRequest() {
+        Log.d("UDBEmulator", "handlePublicQuickIDRequest")
+        Registers.RSTATE_MAP.setValue(1 shl 7)
+        Registers.RSTATE_RPT.setValue(0x71) // PI_QID_PENDING
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
+
+        delay(3000) // Search time
+
+        // 80% chance of detection
+        if (Random.nextFloat() < 0.8f) {
+            Registers.PUBLIC_QID.setValue(Random.nextInt(100, 999))
+            Registers.RRR_VAL.setValue(currentRangeValue)
+
+            val rrCtr = (Registers.RR_CTR.getValue() as? Int ?: 0) + 1
+            Registers.RR_CTR.setValue(rrCtr)
+
+            Registers.RSTATE_RPT.setValue(0x72) // PI_QID_DETECT
+            dispatchRegisterChange(Registers.RR_CTR)
+            dispatchRegisterChange(Registers.RRR_VAL)
+            dispatchRegisterChange(Registers.PUBLIC_QID)
+            dispatchRegisterChange(Registers.RSTATE_RPT)
+        } else {
+            val rrMiss = (Registers.RR_MISS.getValue() as? Int ?: 0) + 1
+            Registers.RR_MISS.setValue(rrMiss)
+
+            Registers.RSTATE_RPT.setValue(0x73) // PI_QID_NODETECT
+            dispatchRegisterChange(Registers.RR_MISS)
+            dispatchRegisterChange(Registers.RSTATE_RPT)
+        }
+        sendRMCommand()
+    }
+
+    private suspend fun handlePublicFullIDRequest() {
+        Log.d("UDBEmulator", "handlePublicFullIDRequest")
+        Registers.RSTATE_MAP.setValue(1 shl 8)
+        Registers.RSTATE_RPT.setValue(0x81) // PI_ID_PENDING
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
+
+        delay(4000) // Longer search time for full ID
+
+        // 70% chance of detection
+        if (Random.nextFloat() < 0.7f) {
+            Registers.PUBLIC_ID.setValue(Random.nextInt(10000, 99999))
+            Registers.RRR_VAL.setValue(currentRangeValue)
+
+            val rrCtr = (Registers.RR_CTR.getValue() as? Int ?: 0) + 1
+            Registers.RR_CTR.setValue(rrCtr)
+
+            Registers.RSTATE_RPT.setValue(0x82) // PI_ID_DETECT
+            dispatchRegisterChange(Registers.RR_CTR)
+            dispatchRegisterChange(Registers.RRR_VAL)
+            dispatchRegisterChange(Registers.PUBLIC_ID)
+            dispatchRegisterChange(Registers.RSTATE_RPT)
+        } else {
+            val rrMiss = (Registers.RR_MISS.getValue() as? Int ?: 0) + 1
+            Registers.RR_MISS.setValue(rrMiss)
+            val rrCtr = (Registers.RR_CTR.getValue() as? Int ?: 0) + 1
+            Registers.RR_CTR.setValue(rrCtr)
+
+            Registers.RSTATE_RPT.setValue(0x83) // PI_ID_NODETECT
+            dispatchRegisterChange(Registers.RR_MISS)
+            dispatchRegisterChange(Registers.RR_CTR)
+            dispatchRegisterChange(Registers.RSTATE_RPT)
+        }
+        sendRMCommand()
+    }
+
+    private suspend fun handleNoiseTestRequest() {
+        Log.d("UDBEmulator", "handleNoiseTestRequest")
+        Registers.RSTATE_MAP.setValue(1 shl 9)
+        Registers.RSTATE_RPT.setValue(0x91) // NT_PENDING
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
+
+        delay(5000) // Noise measurement time
+
+        // Generate realistic noise level
+        noiseLevel = Random.nextInt(15, 80)
+        Registers.AR_NOISE_DB.setValue(noiseLevel)
+
+        val rrCtr = (Registers.RR_CTR.getValue() as? Int ?: 0) + 1
+        Registers.RR_CTR.setValue(rrCtr)
+
+        Registers.RSTATE_RPT.setValue(0x92) // NT_OK
+        dispatchRegisterChange(Registers.RR_CTR)
+        dispatchRegisterChange(Registers.AR_NOISE_DB)
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
+    }
+
+    private suspend fun handleRebootRequest() {
+        Log.d("UDBEmulator", "handleRebootRequest")
+        Registers.RSTATE_MAP.setValue(1 shl 10)
+        Registers.RSTATE_RPT.setValue(0x65) // RB_ACK
+        dispatchRegisterChange(Registers.RSTATE_RPT)
+        sendRMCommand()
+
+        delay(2000) // Simulate reboot time
+
+        // Reset to idle state after reboot
+        Registers.RSTATE_REQ.setValue(0x00)
+        handleIdleRequest()
+    }
+
+    private fun updateStatusReports() {
+        // Simulate realistic sensor readings
+        val batteryVoltage = Random.nextInt(1200, 1500) // 12-15V
+        val temperature = Random.nextInt(50, 250) // 5-25°C
+        val depth = currentRangeValue / 10 // Approximate depth based on range
+        val status = if (Registers.RR4_VAL.getValue() as? Int == 0) 0 else 1 // 0=Released, 1=Armed
+
+        Registers.RR1_VAL.setValue(batteryVoltage)
+        Registers.RR2_VAL.setValue(temperature)
+        Registers.RR3_VAL.setValue(depth)
+        Registers.RR4_VAL.setValue(status)
     }
 }

@@ -9,4 +9,30 @@
     <color name="purple">#FF800080</color>
     <color name="orange">#FFFFA500</color>
     <color name="gray">#FF808080</color>
+    <color name="cyan">#FF00FFFF</color>
+    <color name="magenta">#FFFF00FF</color>
+
+    <!-- Status Colors -->
+    <color name="status_connected">#FF4CAF50</color>
+    <color name="status_disconnected">#FFF44336</color>
+    <color name="status_warning">#FFFF9800</color>
+    <color name="status_info">#FF2196F3</color>
+    <color name="status_success">#FF4CAF50</color>
+    <color name="status_error">#FFF44336</color>
+
+    <!-- Button Colors -->
+    <color name="button_release">#FFFF1744</color>
+    <color name="button_ranging">#FF1976D2</color>
+    <color name="button_broadcast">#FF7B1FA2</color>
+    <color name="button_public">#FFFF6F00</color>
+    <color name="button_test">#FF689F38</color>
+
+    <!-- Sensor Colors -->
+    <color name="sensor_range">#FF03DAC5</color>
+    <color name="sensor_battery">#FF4CAF50</color>
+    <color name="sensor_temperature">#FFFF5722</color>
+    <color name="sensor_depth">#FF3F51B5</color>
+    <color name="sensor_noise_low">#FF4CAF50</color>
+    <color name="sensor_noise_medium">#FFFF9800</color>
+    <color name="sensor_noise_high">#FFF44336</color>
 </resources>
