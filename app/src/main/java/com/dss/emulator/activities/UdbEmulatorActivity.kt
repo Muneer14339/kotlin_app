@@ -83,6 +83,7 @@ class UdbEmulatorActivity : ComponentActivity(), SensorEventListener {
             setupUI()
             setupBluetooth()
             setupDataQueue()
+            startPeriodicStatusUpdates()
             startPeriodicUpdates()
         } catch (e: Exception) {
             Log.e("UdbEmulatorActivity", "Error in onCreate: ${e.message}")
@@ -98,7 +99,7 @@ class UdbEmulatorActivity : ComponentActivity(), SensorEventListener {
             toggleButton = findViewById(R.id.toggleButton)
             viewFirmwareButton = findViewById(R.id.viewFirmwareButton)
 
-            // Try to find enhanced UI components
+            // Enhanced UI component initialization
             connectionStatusText = try {
                 findViewById(R.id.connectionStatusText)
             } catch (e: Exception) {
@@ -108,57 +109,23 @@ class UdbEmulatorActivity : ComponentActivity(), SensorEventListener {
             currentOperationText = try {
                 findViewById(R.id.currentOperationText)
             } catch (e: Exception) {
-                TextView(this).apply { text = "Operation: Idle" }
+                TextView(this).apply { text = "Operation: Ready" }
             }
 
-            rangeValueText = try {
-                findViewById(R.id.rangeValueText)
-            } catch (e: Exception) {
-                TextView(this).apply { text = "Range: 0.00m" }
-            }
-
-            batteryLevelText = try {
-                findViewById(R.id.batteryLevelText)
-            } catch (e: Exception) {
-                TextView(this).apply { text = "Battery: 0.0V" }
-            }
-
-            temperatureText = try {
-                findViewById(R.id.temperatureText)
-            } catch (e: Exception) {
-                TextView(this).apply { text = "Temp: 0.0°C" }
-            }
-
-            depthText = try {
-                findViewById(R.id.depthText)
-            } catch (e: Exception) {
-                TextView(this).apply { text = "Depth: 0.0m" }
-            }
-
-            noiseBar = try {
-                findViewById(R.id.noiseProgressBar)
-            } catch (e: Exception) {
-                ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-                    max = 100
-                    progress = 30
-                }
-            }
-
-            noiseValueText = try {
-                findViewById(R.id.noiseValueText)
-            } catch (e: Exception) {
-                TextView(this).apply { text = "30 dB" }
-            }
-
-            simulateButton = try {
-                findViewById(R.id.simulateButton)
-            } catch (e: Exception) {
-                Button(this).apply { text = "Simulate" }
-            }
+            // Initialize other components...
+            rangeValueText = try { findViewById(R.id.rangeValueText) } catch (e: Exception) { TextView(this).apply { text = "Range: 0.00m" } }
+            batteryLevelText = try { findViewById(R.id.batteryLevelText) } catch (e: Exception) { TextView(this).apply { text = "Battery: 0.0V" } }
+            temperatureText = try { findViewById(R.id.temperatureText) } catch (e: Exception) { TextView(this).apply { text = "Temp: 0.0°C" } }
+            depthText = try { findViewById(R.id.depthText) } catch (e: Exception) { TextView(this).apply { text = "Depth: 0.0m" } }
+            noiseBar = try { findViewById(R.id.noiseProgressBar) } catch (e: Exception) { ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { max = 100; progress = 30 } }
+            noiseValueText = try { findViewById(R.id.noiseValueText) } catch (e: Exception) { TextView(this).apply { text = "30 dB" } }
+            simulateButton = try { findViewById(R.id.simulateButton) } catch (e: Exception) { Button(this).apply { text = "Simulate" } }
 
             historyTextView.text = ""
-            updateConnectionStatus("Waiting For Connection...")
-            updateCurrentOperation("Idle")
+
+            // Set initial status with proper colors
+            updateConnectionStatus("Starting...")
+            updateCurrentOperation("Ready")
 
         } catch (e: Exception) {
             Log.e("UdbEmulatorActivity", "Error initializing components: ${e.message}")
@@ -353,9 +320,99 @@ class UdbEmulatorActivity : ComponentActivity(), SensorEventListener {
         }
     }
 
+    private fun setupManualCommandInput() {
+        try {
+            val inputEditText = findViewById<EditText>(R.id.inputEditText)
+            val sendCommandButton = findViewById<com.google.android.material.button.MaterialButton>(R.id.sendCommandButton)
+
+            sendCommandButton.setOnClickListener {
+                val commandText = inputEditText.text.toString().trim()
+                handleManualCommand(commandText, inputEditText)
+            }
+
+            // Enter key support
+            inputEditText.setOnKeyListener { _, keyCode, event ->
+                if (keyCode == android.view.KeyEvent.KEYCODE_ENTER && event.action == android.view.KeyEvent.ACTION_DOWN) {
+                    sendCommandButton.performClick()
+                    true
+                } else {
+                    false
+                }
+            }
+
+            // Helpful hints for UDB side
+            inputEditText.setOnFocusChangeListener { _, hasFocus ->
+                if (hasFocus && inputEditText.text.isEmpty()) {
+                    inputEditText.hint = "#R001,RC-RI,UDB,RT,RSTATE_RPT,18,*0000"
+                }
+            }
+
+        } catch (e: Exception) {
+            Log.e("UdbEmulatorActivity", "Error setting up manual command input: ${e.message}")
+        }
+    }
+
+    private fun handleManualCommand(commandText: String, inputEditText: EditText) {
+        try {
+            when {
+                commandText.isEmpty() -> {
+                    Toast.makeText(this, "Please enter a command", Toast.LENGTH_SHORT).show()
+                    return
+                }
+
+                !commandText.startsWith("#") -> {
+                    Toast.makeText(this, "Command must start with #\nExample: #R001,RC-RI,UDB,RT,RSTATE_RPT,18,*0000", Toast.LENGTH_LONG).show()
+                    return
+                }
+
+                else -> {
+                    // Validate basic format
+                    val parts = commandText.split(",")
+                    if (parts.size < 4) {
+                        Toast.makeText(this, "Invalid format.\nCorrect: #R001,RC-RI,UDB,COMMAND[,DATA],*CHECKSUM", Toast.LENGTH_LONG).show()
+                        return
+                    }
+
+                    // Create proper DSS command
+                    val fullCommand = if (commandText.endsWith("\r\n")) {
+                        commandText
+                    } else {
+                        "$commandText\r\n"
+                    }
+
+                    Log.d("ManualCommand", "UDB sending: $fullCommand")
+
+                    try {
+                        // Parse as DSS Command to validate
+                        val dssCommand = DSSCommand(fullCommand)
+
+                        // Send command using the emulator
+                        udbEmulator.sendCommand(dssCommand)
+
+                        // Clear input and update UI
+                        inputEditText.text.clear()
+                        updateHistoryTextView()
+
+                        // Show success feedback
+                        updateConnectionStatus("Manual command sent: ${commandText.take(20)}...")
+
+                    } catch (e: IllegalArgumentException) {
+                        Toast.makeText(this, "Invalid command: ${e.message}", Toast.LENGTH_LONG).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(this, "Command failed: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("ManualCommand", "Error handling manual command: ${e.message}")
+            Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
     private fun setupBasicUI() {
         try {
             var isExpanded = false
+            setupManualCommandInput()
             toggleButton.setOnClickListener {
                 isExpanded = toggleTableVisibility(isExpanded)
             }
@@ -416,11 +473,13 @@ class UdbEmulatorActivity : ComponentActivity(), SensorEventListener {
                     bleCentralController.startAdvertising()
                     dataQueueManager.pause()
                     updateConnectionStatus("Waiting For Connection...")
+                    updateCurrentOperation("Ready")
                     isConnected = false
                 } else {
                     bleCentralController.stopAdvertising()
                     dataQueueManager.resume()
                     updateConnectionStatus("Connected: ${device.address}")
+                    updateCurrentOperation("Connected - Ready")
                     isConnected = true
                     showDeviceConnectedDialog(device)
                 }
@@ -429,47 +488,69 @@ class UdbEmulatorActivity : ComponentActivity(), SensorEventListener {
             }
         }
     }
+    // ==================================================================
+// UdbEmulatorActivity.kt میں یہ methods update کریں:
+// ==================================================================
 
+    // Enhanced updateConnectionStatus method:
     private fun updateConnectionStatus(text: String) {
         runOnUiThread {
             try {
                 connectionStatusText.text = text
                 statusText.text = text
 
-                // Color code connection status
-                val color = if (isConnected) Color.GREEN else Color.RED
-                connectionStatusText.setTextColor(color)
+                // Color code connection status properly
+                val color = when {
+                    text.contains("Connected", ignoreCase = true) -> Color.GREEN
+                    text.contains("Waiting", ignoreCase = true) -> Color.YELLOW
+                    text.contains("Failed", ignoreCase = true) || text.contains("Error", ignoreCase = true) -> Color.RED
+                    text.contains("Ready", ignoreCase = true) -> Color.GREEN
+                    else -> Color.GRAY
+                }
+
+                connectionStatusText.setTextColor(Color.WHITE)
+                connectionStatusText.setBackgroundColor(color)
                 statusText.setTextColor(color)
 
-                Log.d("UDB_Connection", text)
+                Log.d("UDB_Connection", "Status updated: $text, Color: $color")
             } catch (e: Exception) {
                 Log.e("UdbEmulatorActivity", "Error updating connection status: ${e.message}")
             }
         }
     }
 
+    // Enhanced updateCurrentOperation method:
     private fun updateCurrentOperation(operation: String) {
         runOnUiThread {
             try {
                 currentOperationText.text = "Operation: $operation"
 
-                // Color code based on operation
+                // Color code based on operation with better logic
                 val color = when (operation.lowercase()) {
                     "idle" -> Color.GRAY
-                    "init", "connection" -> Color.BLUE
+                    "initialization complete", "ready", "connected" -> Color.GREEN
+                    "init", "connection", "initialization" -> Color.BLUE
                     "ranging", "single range", "continuous range" -> Color.CYAN
                     "arming", "triggering", "release" -> Color.RED
                     "broadcast" -> Color.MAGENTA
                     "public interrogate", "noise test" -> Color.YELLOW
-                    else -> Color.BLACK
+                    "complete", "ok", "success" -> Color.GREEN
+                    "failed", "error", "fail" -> Color.RED
+                    "pending", "processing" -> Color.YELLOW
+                    else -> Color.GREEN // Default to green for completed operations
                 }
-                currentOperationText.setTextColor(color)
 
+                currentOperationText.setTextColor(Color.WHITE)
+                currentOperationText.setBackgroundColor(color)
+
+                Log.d("UDB_Operation", "Operation updated: $operation, Color: $color")
             } catch (e: Exception) {
                 Log.e("UdbEmulatorActivity", "Error updating operation: ${e.message}")
             }
         }
     }
+
+
 
     private fun showDeviceConnectedDialog(device: android.bluetooth.BluetoothDevice) {
         runOnUiThread {
@@ -497,6 +578,12 @@ class UdbEmulatorActivity : ComponentActivity(), SensorEventListener {
                     updateHistoryTextView()
                     updateRegisterTable()
                     updateOperationBasedOnRegisters()
+
+                    // Update connection status to show active communication
+                    if (isConnected) {
+                        updateConnectionStatus("Connected - Active")
+                    }
+
                 } catch (e: Exception) {
                     Log.e("UdbEmulatorActivity", "Error processing data: ${e.message}")
                 }
@@ -506,13 +593,17 @@ class UdbEmulatorActivity : ComponentActivity(), SensorEventListener {
         }
     }
 
+
     private fun updateOperationBasedOnRegisters() {
         try {
             currentRStateReq = Registers.RSTATE_REQ.getValue() as? Int ?: 0
             currentRStateRpt = Registers.RSTATE_RPT.getValue() as? Int ?: 0
 
             val operation = when (currentRStateReq) {
-                0x00 -> "Idle Request"
+                0x00 -> when (currentRStateRpt) {
+                    0x01 -> "Idle - Ready"
+                    else -> "Idle Request"
+                }
                 0x10 -> when (currentRStateRpt) {
                     0x11 -> "Initializing..."
                     0x12 -> "Initialization Complete"
@@ -568,7 +659,7 @@ class UdbEmulatorActivity : ComponentActivity(), SensorEventListener {
                     else -> "Noise Test Request"
                 }
                 0x64 -> "Rebooting..."
-                else -> "Idle"
+                else -> "Ready"
             }
 
             updateCurrentOperation(operation)
@@ -576,6 +667,35 @@ class UdbEmulatorActivity : ComponentActivity(), SensorEventListener {
         } catch (e: Exception) {
             Log.e("UdbEmulatorActivity", "Error updating operation based on registers: ${e.message}")
         }
+    }
+
+    private fun startPeriodicStatusUpdates() {
+        val updateRunnable = object : Runnable {
+            override fun run() {
+                try {
+                    // Update status based on connection state
+                    if (isConnected) {
+                        // If connected, show green status
+                        updateConnectionStatus("Connected - Ready")
+
+                        // Update operation based on current state
+                        updateOperationBasedOnRegisters()
+                    } else {
+                        // If not connected, show waiting status
+                        updateConnectionStatus("Waiting For Connection...")
+                        updateCurrentOperation("Ready")
+                    }
+
+                    // Schedule next update
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(this, 3000)
+                } catch (e: Exception) {
+                    Log.e("UdbEmulatorActivity", "Error in periodic status update: ${e.message}")
+                }
+            }
+        }
+
+        // Start periodic updates
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(updateRunnable, 1000)
     }
 
     private fun startPeriodicUpdates() {

@@ -88,6 +88,7 @@ class RcRiEmulatorActivity : ComponentActivity(), SensorEventListener {
             setupUI()
             setupBluetooth()
             setupDataQueue()
+            startPeriodicUIUpdates()
             showDeviceListDialog()
         } catch (e: Exception) {
             Log.e("RcRiEmulatorActivity", "Error in onCreate: ${e.message}")
@@ -295,6 +296,196 @@ class RcRiEmulatorActivity : ComponentActivity(), SensorEventListener {
         }
     }
 
+    // Add this to RcRiEmulatorActivity.kt in setupUI() method
+
+    private fun setupManualCommandInput() {
+        try {
+            val inputEditText = findViewById<EditText>(R.id.inputEditText)
+            val sendCommandButton = findViewById<com.google.android.material.button.MaterialButton>(R.id.sendCommandButton)
+
+            sendCommandButton.setOnClickListener {
+                val commandText = inputEditText.text.toString().trim()
+                handleManualCommand(commandText, inputEditText)
+            }
+
+            // Enter key support
+            inputEditText.setOnKeyListener { _, keyCode, event ->
+                if (keyCode == android.view.KeyEvent.KEYCODE_ENTER && event.action == android.view.KeyEvent.ACTION_DOWN) {
+                    sendCommandButton.performClick()
+                    true
+                } else {
+                    false
+                }
+            }
+
+            // Helpful hints
+            inputEditText.setOnFocusChangeListener { _, hasFocus ->
+                if (hasFocus && inputEditText.text.isEmpty()) {
+                    inputEditText.hint = "#I001,UDB,RC-RI,GT,RSTATE_RPT,*0000"
+                }
+            }
+
+        } catch (e: Exception) {
+            Log.e("RcRiEmulatorActivity", "Error setting up manual command input: ${e.message}")
+        }
+    }
+
+    private fun handleManualCommand(commandText: String, inputEditText: EditText) {
+        try {
+            when {
+                commandText.isEmpty() -> {
+                    showError("Please enter a command")
+                    return
+                }
+
+                !commandText.startsWith("#") -> {
+                    showError("Command must start with # \nExample: #I001,UDB,RC-RI,GT,RSTATE_RPT,*0000")
+                    return
+                }
+
+                else -> {
+                    // Validate basic format
+                    val parts = commandText.split(",")
+                    if (parts.size < 4) {
+                        showError("Invalid format.\nCorrect format: #I001,UDB,RC-RI,COMMAND[,DATA],*CHECKSUM")
+                        return
+                    }
+
+                    // Create proper DSS command
+                    val fullCommand = if (commandText.endsWith("\r\n")) {
+                        commandText
+                    } else {
+                        "$commandText\r\n"
+                    }
+
+                    Log.d("ManualCommand", "Sending: $fullCommand")
+
+                    try {
+                        // Parse as DSS Command to validate
+                        val dssCommand = DSSCommand(fullCommand)
+
+                        // Send command using the emulator
+                        rcriEmulator.sendCommand(dssCommand)
+
+                        // Clear input
+                        inputEditText.text.clear()
+
+                        // Update all UI elements
+                        updateHistoryTextView()
+                        updateRegisterTable()
+
+                        // Force state update after a delay to allow UDB response
+                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                            updateReleaseStateTextView()
+                            updateAllUIFromRegisters()
+                        }, 500) // Wait 500ms for UDB response
+
+                        // Show success feedback
+                        updateStatusBar("Manual command sent: ${commandText.take(20)}...", Color.GREEN)
+
+                    } catch (e: IllegalArgumentException) {
+                        showError("Invalid command format: ${e.message}")
+                    } catch (e: Exception) {
+                        showError("Command failed: ${e.message}")
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("ManualCommand", "Error handling manual command: ${e.message}")
+            showError("Error: ${e.message}")
+        }
+    }
+
+// ==================================================================
+// RcRiEmulatorActivity.kt میں یہ نیا method add کریں:
+// ==================================================================
+
+    private fun updateAllUIFromRegisters() {
+        try {
+            // Force update from current register values
+            val currentStateRpt = com.dss.emulator.register.Registers.RSTATE_RPT.getValue() as? Int ?: 0
+            val currentRange = com.dss.emulator.register.Registers.RRR_VAL.getValue() as? Int ?: 0
+            val retryCount = com.dss.emulator.register.Registers.RR_MISS.getValue() as? Int ?: 0
+
+            // Update range display
+            updateRangeDistance(currentRange)
+
+            // Update retry count
+            updateRetryCount(retryCount)
+
+            // Update state based on RSTATE_RPT register value
+            val releaseState = when (currentStateRpt) {
+                0x1 -> com.dss.emulator.core.ReleaseState.IDLE_ACK
+                0x11 -> com.dss.emulator.core.ReleaseState.INIT_PENDING
+                0x12 -> com.dss.emulator.core.ReleaseState.INIT_OK
+                0x13 -> com.dss.emulator.core.ReleaseState.INIT_FAIL
+                0x21 -> com.dss.emulator.core.ReleaseState.CON_ID1
+                0x22 -> com.dss.emulator.core.ReleaseState.CON_ID2
+                0x23 -> com.dss.emulator.core.ReleaseState.CON_OK
+                0x31 -> com.dss.emulator.core.ReleaseState.RNG_SINGLE_PENDING
+                0x32 -> com.dss.emulator.core.ReleaseState.RNG_SINGLE_OK
+                0x33 -> com.dss.emulator.core.ReleaseState.RNG_SINGLE_FAIL
+                0x41 -> com.dss.emulator.core.ReleaseState.RNG_CONT_PENDING
+                0x42 -> com.dss.emulator.core.ReleaseState.RNG_CONT_OK
+                0x43 -> com.dss.emulator.core.ReleaseState.RNG_CONT_FAIL
+                0x51 -> com.dss.emulator.core.ReleaseState.AT_ARM_PENDING
+                0x52 -> com.dss.emulator.core.ReleaseState.AT_ARM_OK
+                0x54 -> com.dss.emulator.core.ReleaseState.AT_TRG_PENDING
+                0x55 -> com.dss.emulator.core.ReleaseState.AT_TRG_OK
+                0x56 -> com.dss.emulator.core.ReleaseState.AT_TRG_FAIL
+                0x61 -> com.dss.emulator.core.ReleaseState.BCR_PENDING
+                0x62 -> com.dss.emulator.core.ReleaseState.BCR_OK
+                0x71 -> com.dss.emulator.core.ReleaseState.PI_QID_PENDING
+                0x72 -> com.dss.emulator.core.ReleaseState.PI_QID_DETECT
+                0x73 -> com.dss.emulator.core.ReleaseState.PI_QID_NODETECT
+                0x81 -> com.dss.emulator.core.ReleaseState.PI_ID_PENDING
+                0x82 -> com.dss.emulator.core.ReleaseState.PI_ID_DETECT
+                0x83 -> com.dss.emulator.core.ReleaseState.PI_ID_NODETECT
+                0x91 -> com.dss.emulator.core.ReleaseState.NT_PENDING
+                0x92 -> com.dss.emulator.core.ReleaseState.NT_OK
+                0x65 -> com.dss.emulator.core.ReleaseState.RB_ACK
+                else -> com.dss.emulator.core.ReleaseState.IDLE_REQ
+            }
+
+            // Update current state tracking
+            currentState = releaseState
+
+            // Force UI update
+            runOnUiThread {
+                releaseStateTextView.text = releaseState.toString()
+
+                // Color code based on state
+                when (releaseState) {
+                    com.dss.emulator.core.ReleaseState.IDLE_ACK,
+                    com.dss.emulator.core.ReleaseState.INIT_OK,
+                    com.dss.emulator.core.ReleaseState.CON_OK ->
+                        releaseStateTextView.setBackgroundColor(Color.GREEN)
+
+                    com.dss.emulator.core.ReleaseState.INIT_FAIL,
+                    com.dss.emulator.core.ReleaseState.RNG_SINGLE_FAIL,
+                    com.dss.emulator.core.ReleaseState.AT_ARM_FAIL,
+                    com.dss.emulator.core.ReleaseState.AT_TRG_FAIL ->
+                        releaseStateTextView.setBackgroundColor(Color.RED)
+
+                    com.dss.emulator.core.ReleaseState.AT_ARM_PENDING,
+                    com.dss.emulator.core.ReleaseState.AT_TRG_PENDING ->
+                        releaseStateTextView.setBackgroundColor(Color.MAGENTA)
+
+                    else -> releaseStateTextView.setBackgroundColor(Color.BLUE)
+                }
+
+                // Update status bar based on state
+                updateStatusBarBasedOnState(releaseState)
+            }
+
+            Log.d("UIUpdate", "Updated UI from registers - State: $releaseState, Range: ${currentRange}cm, Retries: $retryCount")
+
+        } catch (e: Exception) {
+            Log.e("RcRiEmulatorActivity", "Error updating UI from registers: ${e.message}")
+        }
+    }
+
+
     private fun setupUI() {
         try {
             var isExpanded = false
@@ -304,6 +495,7 @@ class RcRiEmulatorActivity : ComponentActivity(), SensorEventListener {
 
             setupCommandButtons()
             setupNewPopupButtonsSafely()
+            setupManualCommandInput()
         } catch (e: Exception) {
             Log.e("RcRiEmulatorActivity", "Error setting up UI: ${e.message}")
             setupBasicUI()
@@ -547,9 +739,17 @@ class RcRiEmulatorActivity : ComponentActivity(), SensorEventListener {
                 try {
                     Log.d("RcRiEmulatorActivity", "Received data length: ${data.size}")
                     rcriEmulator.onReceiveData(data)
+
+                    // Update all UI elements
                     updateHistoryTextView()
                     updateRegisterTable()
                     updateReleaseStateTextView()
+
+                    // Additional UI update after processing
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                        updateAllUIFromRegisters()
+                    }, 200)
+
                 } catch (e: Exception) {
                     Log.e("RcRiEmulatorActivity", "Error processing received data: ${e.message}")
                 }
@@ -895,27 +1095,83 @@ class RcRiEmulatorActivity : ComponentActivity(), SensorEventListener {
         }
     }
 
+
     private fun updateReleaseStateTextView() {
         runOnUiThread {
             try {
-                val state = rcriEmulator.getReleaseState()
+                // Try to get state from emulator first
+                var state = try {
+                    rcriEmulator.getReleaseState()
+                } catch (e: Exception) {
+                    // Fallback: determine state from registers
+                    val rStateRpt = com.dss.emulator.register.Registers.RSTATE_RPT.getValue() as? Int ?: 0
+                    when (rStateRpt) {
+                        0x1 -> com.dss.emulator.core.ReleaseState.IDLE_ACK
+                        0x12 -> com.dss.emulator.core.ReleaseState.INIT_OK
+                        0x23 -> com.dss.emulator.core.ReleaseState.CON_OK
+                        0x32 -> com.dss.emulator.core.ReleaseState.RNG_SINGLE_OK
+                        0x42 -> com.dss.emulator.core.ReleaseState.RNG_CONT_OK
+                        0x92 -> com.dss.emulator.core.ReleaseState.NT_OK
+                        else -> com.dss.emulator.core.ReleaseState.IDLE_REQ
+                    }
+                }
+
                 releaseStateTextView.text = state.toString()
 
                 // Color code based on state
                 when (state) {
-                    ReleaseState.IDLE_ACK, ReleaseState.INIT_OK, ReleaseState.CON_OK ->
+                    com.dss.emulator.core.ReleaseState.IDLE_ACK,
+                    com.dss.emulator.core.ReleaseState.INIT_OK,
+                    com.dss.emulator.core.ReleaseState.CON_OK ->
                         releaseStateTextView.setBackgroundColor(Color.GREEN)
-                    ReleaseState.INIT_FAIL, ReleaseState.RNG_SINGLE_FAIL, ReleaseState.AT_ARM_FAIL, ReleaseState.AT_TRG_FAIL ->
+
+                    com.dss.emulator.core.ReleaseState.INIT_FAIL,
+                    com.dss.emulator.core.ReleaseState.RNG_SINGLE_FAIL,
+                    com.dss.emulator.core.ReleaseState.AT_ARM_FAIL,
+                    com.dss.emulator.core.ReleaseState.AT_TRG_FAIL ->
                         releaseStateTextView.setBackgroundColor(Color.RED)
-                    ReleaseState.AT_ARM_PENDING, ReleaseState.AT_TRG_PENDING ->
+
+                    com.dss.emulator.core.ReleaseState.AT_ARM_PENDING,
+                    com.dss.emulator.core.ReleaseState.AT_TRG_PENDING ->
                         releaseStateTextView.setBackgroundColor(Color.MAGENTA)
+
                     else -> releaseStateTextView.setBackgroundColor(Color.BLUE)
                 }
+
+                // Update current state tracking
+                currentState = state
+
+                Log.d("StateUpdate", "Updated release state: $state")
+
             } catch (e: Exception) {
                 Log.e("RcRiEmulatorActivity", "Error updating release state: ${e.message}")
             }
         }
     }
+
+// ==================================================================
+// Add this periodic update method - call from onCreate():
+// ==================================================================
+
+    private fun startPeriodicUIUpdates() {
+        val updateRunnable = object : Runnable {
+            override fun run() {
+                try {
+                    // Update UI from register values every 2 seconds
+                    updateAllUIFromRegisters()
+
+                    // Schedule next update
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(this, 2000)
+                } catch (e: Exception) {
+                    Log.e("RcRiEmulatorActivity", "Error in periodic UI update: ${e.message}")
+                }
+            }
+        }
+
+        // Start periodic updates
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(updateRunnable, 1000)
+    }
+
 
     private fun Int.dpToPx(): Int = (this * resources.displayMetrics.density).toInt()
 
