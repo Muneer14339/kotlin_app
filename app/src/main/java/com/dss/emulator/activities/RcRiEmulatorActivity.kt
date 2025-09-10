@@ -270,10 +270,10 @@ class RcRiEmulatorActivity : ComponentActivity(), SensorEventListener {
         runOnUiThread {
             try {
                 // Update range with simulated sonar + device movement
-                val baseRange = Random.nextInt(1000, 5000) // Base sonar range
-                val movementOffset = (deviceMovement * 10).toInt() // Movement affects range
-                currentRange = (baseRange + movementOffset).coerceIn(500, 8000)
-                updateRangeDistance(currentRange)
+//                val baseRange = Random.nextInt(1000, 5000) // Base sonar range
+//                val movementOffset = (deviceMovement * 10).toInt() // Movement affects range
+//                currentRange = (baseRange + movementOffset).coerceIn(500, 8000)
+//                //updateRangeDistance(currentRange)
 
                 // Show real temperature or simulated underwater temp
                 val displayTemp = if (temperatureSensor != null) {
