@@ -28,6 +28,7 @@ import com.dss.emulator.register.Direction
 import com.dss.emulator.register.Register
 import com.dss.emulator.register.registerList
 import com.dss.emulator.udb.R
+import com.dss.emulator.ui.UDBColorCoding
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 
@@ -794,65 +795,98 @@ class RcRiEmulatorActivity : ComponentActivity(), SensorEventListener {
         }
     }
 
+    // Replace the updateStatusBarBasedOnState method with this enhanced version:
     private fun updateStatusBarBasedOnState(state: ReleaseState) {
-        val (message, color) = when (state) {
-            ReleaseState.IDLE_ACK -> "UDB Connected - Ready" to Color.GREEN
-            ReleaseState.INIT_PENDING -> "Initializing..." to Color.YELLOW
-            ReleaseState.INIT_OK -> "Initialization Complete" to Color.GREEN
-            ReleaseState.INIT_FAIL -> "Initialization Failed" to Color.RED
-            ReleaseState.CON_REQ, ReleaseState.CON_ID1, ReleaseState.CON_ID2 -> "Connecting to Release Device..." to Color.YELLOW
-            ReleaseState.CON_OK -> "Connected to Release Device" to Color.GREEN
-            ReleaseState.RNG_SINGLE_PENDING -> "Single Ranging in Progress..." to Color.BLUE
-            ReleaseState.RNG_SINGLE_OK -> "Single Range Complete - ${currentRange/100.0}m" to Color.GREEN
-            ReleaseState.RNG_SINGLE_FAIL -> "Single Range Failed - Retry ${currentRetryCount}" to Color.RED
-            ReleaseState.RNG_CONT_PENDING -> "Continuous Ranging Active..." to Color.BLUE
-            ReleaseState.RNG_CONT_OK -> "Ranging: ${currentRange/100.0}m" to Color.GREEN
-            ReleaseState.RNG_CONT_FAIL -> "Range Failed - Retry ${currentRetryCount}" to Color.YELLOW
-            ReleaseState.AT_ARM_PENDING -> "ARMING Release Device..." to Color.MAGENTA
-            ReleaseState.AT_ARM_OK -> "ARMED - Preparing Trigger..." to Color.MAGENTA
-            ReleaseState.AT_ARM_FAIL -> "Arm Failed - Retry ${currentRetryCount}" to Color.RED
-            ReleaseState.AT_TRG_PENDING -> "TRIGGERING Release..." to Color.RED
-            ReleaseState.AT_TRG_OK -> "RELEASED - Pop-up in Progress!" to Color.GREEN
-            ReleaseState.AT_TRG_FAIL -> "Trigger Failed - Retry ${currentRetryCount}" to Color.RED
-            ReleaseState.BCR_PENDING -> "Broadcasting Group Release..." to Color.CYAN
-            ReleaseState.BCR_OK -> "Broadcast Complete" to Color.GREEN
-            ReleaseState.PI_QID_PENDING -> "Public Quick ID Interrogate..." to Color.BLUE
-            ReleaseState.PI_QID_DETECT -> "Quick ID Detected!" to Color.GREEN
-            ReleaseState.PI_QID_NODETECT -> "No Quick ID Response - Retry ${currentRetryCount}" to Color.YELLOW
-            ReleaseState.PI_ID_PENDING -> "Public Full ID Interrogate..." to Color.BLUE
-            ReleaseState.PI_ID_DETECT -> "Full ID Detected!" to Color.GREEN
-            ReleaseState.PI_ID_NODETECT -> "No Full ID Response - Retry ${currentRetryCount}" to Color.YELLOW
-            ReleaseState.NT_PENDING -> "Noise Test in Progress..." to Color.BLUE
-            ReleaseState.NT_OK -> "Noise Test Complete" to Color.GREEN
-            ReleaseState.RB_OK -> "Reboot Command Sent" to Color.YELLOW
-            ReleaseState.RB_ACK -> "Device Rebooted" to Color.GREEN
-            else -> "State: ${state.name}" to Color.GRAY
+        val statusMessage = UDBColorCoding.getStatusMessage(state)
+        val statusColor = UDBColorCoding.getStateColor(state)
+        val textColor = UDBColorCoding.getTextColor(statusColor)
+
+        runOnUiThread {
+            try {
+                statusBarTextView.text = statusMessage
+                statusBarTextView.setBackgroundColor(statusColor)
+                statusBarTextView.setTextColor(textColor)
+
+                // Update the release state text view as well
+                releaseStateTextView.text = state.toString()
+                releaseStateTextView.setBackgroundColor(statusColor)
+                releaseStateTextView.setTextColor(textColor)
+
+                Log.d("StatusUpdate", "State: $state, Color: $statusColor, Message: $statusMessage")
+            } catch (e: Exception) {
+                Log.e("RcRiEmulatorActivity", "Error updating status bar: ${e.message}")
+            }
         }
-        updateStatusBar(message, color)
     }
 
+    // Replace the updateConnectionStatus method:
+    private fun updateConnectionStatus(message: String, isConnected: Boolean = false) {
+        runOnUiThread {
+            try {
+                val color = if (isConnected) {
+                    UDBColorCoding.StatusColors.SUCCESS
+                } else if (message.contains("Failed", ignoreCase = true) ||
+                    message.contains("Error", ignoreCase = true)) {
+                    UDBColorCoding.StatusColors.ERROR
+                } else if (message.contains("Waiting", ignoreCase = true)) {
+                    UDBColorCoding.StatusColors.WARNING
+                } else {
+                    UDBColorCoding.StatusColors.INFO
+                }
+
+                val textColor = UDBColorCoding.getTextColor(color)
+
+                statusBarTextView.text = message
+                statusBarTextView.setBackgroundColor(color)
+                statusBarTextView.setTextColor(textColor)
+
+                Log.d("ConnectionUpdate", "Message: $message, Color: $color")
+            } catch (e: Exception) {
+                Log.e("RcRiEmulatorActivity", "Error updating connection status: ${e.message}")
+            }
+        }
+    }
+
+    // Replace the updateRetryCount method:
     private fun updateRetryCount(count: Int) {
         runOnUiThread {
             try {
+                val color = UDBColorCoding.getRetryCountColor(count)
+                val textColor = UDBColorCoding.getTextColor(color)
+
                 retryCountTextView.text = "Retries: $count"
-                retryCountTextView.setTextColor(if (count >= 10) Color.RED else Color.BLACK)
+                retryCountTextView.setTextColor(textColor)
+                retryCountTextView.setBackgroundColor(color)
+
+                // Add padding for better visibility
+                retryCountTextView.setPadding(8, 4, 8, 4)
+
             } catch (e: Exception) {
                 Log.e("RcRiEmulatorActivity", "Error updating retry count: ${e.message}")
             }
         }
     }
 
+    // Replace the updateRangeDistance method:
     private fun updateRangeDistance(range: Int) {
         runOnUiThread {
             try {
                 val rangeInMeters = range / 100.0
+                val color = UDBColorCoding.getRangeColor(rangeInMeters)
+                val textColor = UDBColorCoding.getTextColor(color)
+
                 rangeDistanceTextView.text = "Range: ${String.format("%.2f", rangeInMeters)}m"
+                rangeDistanceTextView.setTextColor(textColor)
+                rangeDistanceTextView.setBackgroundColor(color)
+                rangeDistanceTextView.setPadding(8, 4, 8, 4)
+
             } catch (e: Exception) {
                 Log.e("RcRiEmulatorActivity", "Error updating range: ${e.message}")
             }
         }
     }
 
+    // Enhanced countdown with proper coloring:
     private fun startReleaseCountdown() {
         try {
             // Calculate countdown: 10 seconds + 1 second per 2m of range
@@ -868,6 +902,18 @@ class RcRiEmulatorActivity : ComponentActivity(), SensorEventListener {
                         try {
                             countdownTextView.text = "Pop-up ETA: ${seconds}s"
                             countdownTextView.visibility = View.VISIBLE
+
+                            // Color code based on time remaining
+                            val color = when {
+                                seconds > 30 -> UDBColorCoding.StatusColors.INFO
+                                seconds > 10 -> UDBColorCoding.StatusColors.WARNING
+                                else -> UDBColorCoding.StatusColors.CRITICAL
+                            }
+
+                            countdownTextView.setBackgroundColor(color)
+                            countdownTextView.setTextColor(UDBColorCoding.getTextColor(color))
+                            countdownTextView.setPadding(8, 4, 8, 4)
+
                         } catch (e: Exception) {
                             Log.e("RcRiEmulatorActivity", "Error updating countdown: ${e.message}")
                         }
@@ -877,8 +923,9 @@ class RcRiEmulatorActivity : ComponentActivity(), SensorEventListener {
                 override fun onFinish() {
                     runOnUiThread {
                         try {
-                            countdownTextView.text = "POP-UP EXPECTED!"
-                            countdownTextView.setTextColor(Color.GREEN)
+                            countdownTextView.text = "🎯 POP-UP EXPECTED!"
+                            countdownTextView.setBackgroundColor(UDBColorCoding.StatusColors.SUCCESS)
+                            countdownTextView.setTextColor(UDBColorCoding.getTextColor(UDBColorCoding.StatusColors.SUCCESS))
                             playReleaseAlert()
                         } catch (e: Exception) {
                             Log.e("RcRiEmulatorActivity", "Error finishing countdown: ${e.message}")
@@ -1096,59 +1143,51 @@ class RcRiEmulatorActivity : ComponentActivity(), SensorEventListener {
     }
 
 
+    // Replace the updateReleaseStateTextView method:
     private fun updateReleaseStateTextView() {
         runOnUiThread {
             try {
-                // Try to get state from emulator first
                 var state = try {
                     rcriEmulator.getReleaseState()
                 } catch (e: Exception) {
                     // Fallback: determine state from registers
                     val rStateRpt = com.dss.emulator.register.Registers.RSTATE_RPT.getValue() as? Int ?: 0
                     when (rStateRpt) {
-                        0x1 -> com.dss.emulator.core.ReleaseState.IDLE_ACK
-                        0x12 -> com.dss.emulator.core.ReleaseState.INIT_OK
-                        0x23 -> com.dss.emulator.core.ReleaseState.CON_OK
-                        0x32 -> com.dss.emulator.core.ReleaseState.RNG_SINGLE_OK
-                        0x42 -> com.dss.emulator.core.ReleaseState.RNG_CONT_OK
-                        0x92 -> com.dss.emulator.core.ReleaseState.NT_OK
-                        else -> com.dss.emulator.core.ReleaseState.IDLE_REQ
+                        0x1 -> ReleaseState.IDLE_ACK
+                        0x12 -> ReleaseState.INIT_OK
+                        0x23 -> ReleaseState.CON_OK
+                        0x32 -> ReleaseState.RNG_SINGLE_OK
+                        0x42 -> ReleaseState.RNG_CONT_OK
+                        0x52 -> ReleaseState.AT_ARM_OK
+                        0x55 -> ReleaseState.AT_TRG_OK
+                        0x62 -> ReleaseState.BCR_OK
+                        0x72 -> ReleaseState.PI_QID_DETECT
+                        0x82 -> ReleaseState.PI_ID_DETECT
+                        0x92 -> ReleaseState.NT_OK
+                        else -> ReleaseState.IDLE_REQ
                     }
                 }
 
-                releaseStateTextView.text = state.toString()
+                // Use the standardized color coding
+                val statusColor = UDBColorCoding.getStateColor(state)
+                val textColor = UDBColorCoding.getTextColor(statusColor)
+                val statusMessage = UDBColorCoding.getStatusMessage(state)
 
-                // Color code based on state
-                when (state) {
-                    com.dss.emulator.core.ReleaseState.IDLE_ACK,
-                    com.dss.emulator.core.ReleaseState.INIT_OK,
-                    com.dss.emulator.core.ReleaseState.CON_OK ->
-                        releaseStateTextView.setBackgroundColor(Color.GREEN)
-
-                    com.dss.emulator.core.ReleaseState.INIT_FAIL,
-                    com.dss.emulator.core.ReleaseState.RNG_SINGLE_FAIL,
-                    com.dss.emulator.core.ReleaseState.AT_ARM_FAIL,
-                    com.dss.emulator.core.ReleaseState.AT_TRG_FAIL ->
-                        releaseStateTextView.setBackgroundColor(Color.RED)
-
-                    com.dss.emulator.core.ReleaseState.AT_ARM_PENDING,
-                    com.dss.emulator.core.ReleaseState.AT_TRG_PENDING ->
-                        releaseStateTextView.setBackgroundColor(Color.MAGENTA)
-
-                    else -> releaseStateTextView.setBackgroundColor(Color.BLUE)
-                }
+                releaseStateTextView.text = statusMessage
+                releaseStateTextView.setBackgroundColor(statusColor)
+                releaseStateTextView.setTextColor(textColor)
+                releaseStateTextView.setPadding(12, 8, 12, 8)
 
                 // Update current state tracking
                 currentState = state
 
-                Log.d("StateUpdate", "Updated release state: $state")
+                Log.d("StateUpdate", "Updated release state: $state with color: $statusColor")
 
             } catch (e: Exception) {
                 Log.e("RcRiEmulatorActivity", "Error updating release state: ${e.message}")
             }
         }
     }
-
 // ==================================================================
 // Add this periodic update method - call from onCreate():
 // ==================================================================

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Existing basic colors -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
     <color name="red">#FFFF0000</color>
@@ -12,7 +13,66 @@
     <color name="cyan">#FF00FFFF</color>
     <color name="magenta">#FFFF00FF</color>
 
-    <!-- Status Colors -->
+    <!-- Official UDB Status Colors - From Specification Document -->
+    <color name="udb_red">#FFFF0000</color>               <!-- Red - Initial states, errors -->
+    <color name="udb_blue">#FF0066CC</color>              <!-- Blue - Connection states, system states -->
+    <color name="udb_yellow">#FFFFCC00</color>            <!-- Yellow - Pending, in-progress operations -->
+    <color name="udb_green">#FF00CC00</color>             <!-- Green - Successful, completed operations -->
+
+    <!-- Legacy Status Colors (updated to match specification) -->
+    <color name="udb_success">#FF00CC00</color>           <!-- Green -->
+    <color name="udb_error">#FFFF0000</color>             <!-- Red -->
+    <color name="udb_warning">#FFFFCC00</color>           <!-- Yellow -->
+    <color name="udb_pending">#FFFFCC00</color>           <!-- Yellow -->
+    <color name="udb_info">#FF0066CC</color>              <!-- Blue -->
+    <color name="udb_armed">#FFFFCC00</color>             <!-- Yellow for armed states -->
+    <color name="udb_idle">#FFFF0000</color>              <!-- Red for idle states -->
+    <color name="udb_critical">#FFFF0000</color>          <!-- Red for critical -->
+    <color name="udb_active">#FFFFCC00</color>            <!-- Yellow for active -->
+
+    <!-- Release State Specific Colors -->
+    <color name="release_idle">#FF9E9E9E</color>         <!-- Light Gray -->
+    <color name="release_init_pending">#FFFFEB3B</color>  <!-- Bright Yellow -->
+    <color name="release_init_ok">#FF4CAF50</color>       <!-- Green -->
+    <color name="release_init_fail">#FFF44336</color>     <!-- Red -->
+    <color name="release_connection">#FF2196F3</color>    <!-- Blue -->
+    <color name="release_ranging">#FF00BCD4</color>       <!-- Cyan -->
+    <color name="release_armed">#FF9C27B0</color>         <!-- Purple -->
+    <color name="release_triggered">#FFFF1744</color>     <!-- Deep Red -->
+    <color name="release_broadcast">#FF673AB7</color>     <!-- Deep Purple -->
+    <color name="release_public_id">#FFFF9800</color>     <!-- Orange -->
+    <color name="release_noise_test">#FF795548</color>    <!-- Brown -->
+
+    <!-- Connection Status Colors -->
+    <color name="connection_connected">#FF4CAF50</color>   <!-- Green -->
+    <color name="connection_connecting">#FFFFEB3B</color>  <!-- Yellow -->
+    <color name="connection_disconnected">#FFF44336</color> <!-- Red -->
+    <color name="connection_scanning">#FF2196F3</color>    <!-- Blue -->
+
+    <!-- Sensor Value Colors -->
+    <color name="sensor_range_good">#FF4CAF50</color>      <!-- Green - Good range -->
+    <color name="sensor_range_warning">#FFFF9800</color>   <!-- Orange - Far but OK -->
+    <color name="sensor_range_error">#FFF44336</color>     <!-- Red - Too close/far -->
+
+    <color name="sensor_battery_good">#FF4CAF50</color>    <!-- Green - >13V -->
+    <color name="sensor_battery_low">#FFFF9800</color>     <!-- Orange - 11.5-13V -->
+    <color name="sensor_battery_critical">#FFF44336</color> <!-- Red - <11.5V -->
+
+    <color name="sensor_temp_normal">#FF4CAF50</color>     <!-- Green - Normal temp -->
+    <color name="sensor_temp_cold">#FF2196F3</color>       <!-- Blue - Cold -->
+    <color name="sensor_temp_warning">#FFFF9800</color>    <!-- Orange - Extreme temp -->
+
+    <color name="sensor_noise_low">#FF4CAF50</color>       <!-- Green - <30dB -->
+    <color name="sensor_noise_medium">#FFFF9800</color>    <!-- Orange - 30-60dB -->
+    <color name="sensor_noise_high">#FFF44336</color>      <!-- Red - >60dB -->
+
+    <!-- Retry Count Colors -->
+    <color name="retry_none">#FF4CAF50</color>             <!-- Green - 0 retries -->
+    <color name="retry_few">#FFFF9800</color>              <!-- Orange - 1-4 retries -->
+    <color name="retry_many">#FFF44336</color>             <!-- Red - 5-9 retries -->
+    <color name="retry_critical">#FFD32F2F</color>         <!-- Dark Red - 10+ retries -->
+
+    <!-- Legacy Status Colors (keep for backward compatibility) -->
     <color name="status_connected">#FF4CAF50</color>
     <color name="status_disconnected">#FFF44336</color>
     <color name="status_warning">#FFFF9800</color>
@@ -27,12 +87,45 @@
     <color name="button_public">#FFFF6F00</color>
     <color name="button_test">#FF689F38</color>
 
-    <!-- Sensor Colors -->
-    <color name="sensor_range">#FF03DAC5</color>
-    <color name="sensor_battery">#FF4CAF50</color>
-    <color name="sensor_temperature">#FFFF5722</color>
-    <color name="sensor_depth">#FF3F51B5</color>
-    <color name="sensor_noise_low">#FF4CAF50</color>
-    <color name="sensor_noise_medium">#FFFF9800</color>
-    <color name="sensor_noise_high">#FFF44336</color>
+    <!-- Text Colors -->
+    <color name="text_on_dark">#FFFFFFFF</color>
+    <color name="text_on_light">#FF000000</color>
+    <color name="text_on_colored">#FFFFFFFF</color>
+
+    <!-- Background Colors -->
+    <color name="background_status_bar">#FFF5F5F5</color>
+    <color name="background_sensor_panel">#FFEEEEEE</color>
+    <color name="background_command_history">#FFF8F8F8</color>
+
+    <!-- Accent Colors for different operations -->
+    <color name="accent_armed_state">#FFFF4081</color>     <!-- Pink - Very attention grabbing -->
+    <color name="accent_critical_op">#FFFF1744</color>     <!-- Deep Red - Critical operations -->
+    <color name="accent_normal_op">#FF00BCD4</color>       <!-- Teal - Normal operations -->
+    <color name="accent_info_op">#FF3F51B5</color>         <!-- Indigo - Information operations -->
+
+    <!-- Gradient Colors for complex states -->
+    <color name="gradient_armed_start">#FFFF4081</color>
+    <color name="gradient_armed_end">#FF9C27B0</color>
+    <color name="gradient_critical_start">#FFFF1744</color>
+    <color name="gradient_critical_end">#FFD32F2F</color>
+    <color name="gradient_success_start">#FF4CAF50</color>
+    <color name="gradient_success_end">#FF2E7D32</color>
+
+    <!-- Transparency variants for overlays -->
+    <color name="overlay_armed">#AA9C27B0</color>          <!-- Semi-transparent purple -->
+    <color name="overlay_critical">#AAFF1744</color>       <!-- Semi-transparent red -->
+    <color name="overlay_warning">#AAFF9800</color>        <!-- Semi-transparent orange -->
+    <color name="overlay_success">#AA4CAF50</color>        <!-- Semi-transparent green -->
+
+    <!-- Special state colors -->
+    <color name="state_firmware_update">#FF607D8B</color>   <!-- Blue Gray -->
+    <color name="state_simulation">#FF795548</color>        <!-- Brown -->
+    <color name="state_manual_input">#FF455A64</color>      <!-- Dark Blue Gray -->
+    <color name="state_countdown">#FFFF5722</color>         <!-- Deep Orange -->
+
+    <!-- Alert Colors -->
+    <color name="alert_pop_up_expected">#FF8BC34A</color>   <!-- Light Green -->
+    <color name="alert_device_released">#FF4CAF50</color>   <!-- Green -->
+    <color name="alert_range_complete">#FF00BCD4</color>    <!-- Cyan -->
+    <color name="alert_detection">#FFCDDC39</color>         <!-- Lime -->
 </resources>
