@@ -17,6 +17,7 @@ import androidx.appcompat.app.AlertDialog
 import com.dss.emulator.bluetooth.BLEPermissionsManager
 import com.dss.emulator.bluetooth.DataQueueManager
 import com.dss.emulator.bluetooth.peripheral.BLEPeripheralController
+import com.dss.emulator.core.ReleaseState
 import com.dss.emulator.core.UDBEmulator
 import com.dss.emulator.dsscommand.DSSCommand
 import com.dss.emulator.register.Direction
@@ -546,30 +547,36 @@ class UdbEmulatorActivity : ComponentActivity(), SensorEventListener {
         }
     }
 
-    // Replace the updateCurrentOperation method:
     private fun updateCurrentOperation(operation: String) {
         runOnUiThread {
             try {
-                val color = when (operation.lowercase()) {
-                    "idle", "ready" -> UDBColorCoding.StatusColors.IDLE
-                    "initialization complete", "connected", "complete", "ok", "success" -> UDBColorCoding.StatusColors.SUCCESS
-                    "init", "connection", "initialization", "pending", "processing" -> UDBColorCoding.StatusColors.PENDING
-                    "ranging", "single range", "continuous range", "measuring noise level" -> UDBColorCoding.StatusColors.ACTIVE
-                    "arming", "triggering", "release" -> UDBColorCoding.StatusColors.CRITICAL
-                    "broadcast" -> UDBColorCoding.StatusColors.INFO
-                    "public interrogate", "noise test" -> UDBColorCoding.StatusColors.INFO
-                    "failed", "error", "fail" -> UDBColorCoding.StatusColors.ERROR
-                    else -> UDBColorCoding.StatusColors.SUCCESS
+                // Map operation string to ReleaseState for consistent coloring
+                val releaseState = when (operation.lowercase()) {
+                    "idle", "ready" -> ReleaseState.IDLE_ACK
+                    "initialization complete", "connected", "complete", "ok", "success" -> ReleaseState.INIT_OK
+                    "init", "initialization" -> ReleaseState.INIT_PENDING
+                    "connection", "connecting" -> ReleaseState.CON_ID1
+                    "pending", "processing" -> ReleaseState.INIT_PENDING
+                    "ranging", "single range" -> ReleaseState.RNG_SINGLE_OK
+                    "continuous range", "measuring noise level" -> ReleaseState.RNG_CONT_OK
+                    "arming" -> ReleaseState.AT_ARM_PENDING
+                    "triggering", "release" -> ReleaseState.AT_TRG_PENDING
+                    "broadcast" -> ReleaseState.BCR_OK
+                    "public interrogate" -> ReleaseState.PI_QID_DETECT
+                    "noise test" -> ReleaseState.NT_OK
+                    "failed", "error", "fail" -> ReleaseState.INIT_FAIL
+                    else -> ReleaseState.IDLE_ACK
                 }
 
-                val textColor = UDBColorCoding.getTextColor(color)
+                // Use same color coding system as RC/RI
+                val statusColor = UDBColorCoding.getStateColor(releaseState)
+                val textColor = UDBColorCoding.getTextColor(statusColor)
 
                 currentOperationText.text = "Operation: $operation"
-                currentOperationText.setBackgroundColor(color)
+                currentOperationText.setBackgroundColor(statusColor)
                 currentOperationText.setTextColor(textColor)
                 currentOperationText.setPadding(12, 8, 12, 8)
 
-                Log.d("UDB_Operation", "Operation updated: $operation, Color: $color")
             } catch (e: Exception) {
                 Log.e("UdbEmulatorActivity", "Error updating operation: ${e.message}")
             }
@@ -626,75 +633,50 @@ class UdbEmulatorActivity : ComponentActivity(), SensorEventListener {
             currentRStateReq = Registers.RSTATE_REQ.getValue() as? Int ?: 0
             currentRStateRpt = Registers.RSTATE_RPT.getValue() as? Int ?: 0
 
-            val (operation, color) = when (currentRStateReq) {
-                0x00 -> when (currentRStateRpt) {
-                    0x01 -> "Idle - Ready" to UDBColorCoding.StatusColors.SUCCESS
-                    else -> "Idle Request" to UDBColorCoding.StatusColors.IDLE
-                }
-                0x10 -> when (currentRStateRpt) {
-                    0x11 -> "Initializing..." to UDBColorCoding.StatusColors.PENDING
-                    0x12 -> "Initialization Complete" to UDBColorCoding.StatusColors.SUCCESS
-                    0x13 -> "Initialization Failed" to UDBColorCoding.StatusColors.ERROR
-                    else -> "Initialize Request" to UDBColorCoding.StatusColors.PENDING
-                }
-                0x20 -> when (currentRStateRpt) {
-                    0x21 -> "Connection ID1" to UDBColorCoding.StatusColors.INFO
-                    0x22 -> "Connection ID2" to UDBColorCoding.StatusColors.INFO
-                    0x23 -> "Connected to RC-RI" to UDBColorCoding.StatusColors.SUCCESS
-                    else -> "Connection Request" to UDBColorCoding.StatusColors.PENDING
-                }
-                0x30 -> when (currentRStateRpt) {
-                    0x31 -> "Processing Single Range..." to UDBColorCoding.StatusColors.ACTIVE
-                    0x32 -> "Single Range Complete" to UDBColorCoding.StatusColors.SUCCESS
-                    0x33 -> "Single Range Failed" to UDBColorCoding.StatusColors.ERROR
-                    else -> "Single Range Request" to UDBColorCoding.StatusColors.PENDING
-                }
-                0x40 -> when (currentRStateRpt) {
-                    0x41 -> "Starting Continuous Range..." to UDBColorCoding.StatusColors.ACTIVE
-                    0x42 -> "Continuous Ranging Active" to UDBColorCoding.StatusColors.ACTIVE
-                    0x43 -> "Continuous Range Failed" to UDBColorCoding.StatusColors.ERROR
-                    else -> "Continuous Range Request" to UDBColorCoding.StatusColors.PENDING
-                }
-                0x50 -> when (currentRStateRpt) {
-                    0x51 -> "⚠️ ARMING DEVICE..." to UDBColorCoding.StatusColors.ARMED
-                    0x52 -> "⚠️ DEVICE ARMED" to UDBColorCoding.StatusColors.ARMED
-                    0x54 -> "🚨 TRIGGERING RELEASE..." to UDBColorCoding.StatusColors.CRITICAL
-                    0x55 -> "🚨 DEVICE RELEASED!" to UDBColorCoding.StatusColors.SUCCESS
-                    0x56 -> "Trigger Failed" to UDBColorCoding.StatusColors.ERROR
-                    else -> "Trigger Request" to UDBColorCoding.StatusColors.WARNING
-                }
-                0x60 -> when (currentRStateRpt) {
-                    0x61 -> "Processing Broadcast..." to UDBColorCoding.StatusColors.INFO
-                    0x62 -> "Broadcast Complete" to UDBColorCoding.StatusColors.SUCCESS
-                    else -> "Broadcast Request" to UDBColorCoding.StatusColors.PENDING
-                }
-                0x70 -> when (currentRStateRpt) {
-                    0x71 -> "Searching Quick ID..." to UDBColorCoding.StatusColors.INFO
-                    0x72 -> "Quick ID Detected" to UDBColorCoding.StatusColors.SUCCESS
-                    0x73 -> "No Quick ID Found" to UDBColorCoding.StatusColors.WARNING
-                    else -> "Public Quick ID Request" to UDBColorCoding.StatusColors.PENDING
-                }
-                0x80 -> when (currentRStateRpt) {
-                    0x81 -> "Searching Full ID..." to UDBColorCoding.StatusColors.INFO
-                    0x82 -> "Full ID Detected" to UDBColorCoding.StatusColors.SUCCESS
-                    0x83 -> "No Full ID Found" to UDBColorCoding.StatusColors.WARNING
-                    else -> "Public Full ID Request" to UDBColorCoding.StatusColors.PENDING
-                }
-                0x90 -> when (currentRStateRpt) {
-                    0x91 -> "Measuring Noise Level..." to UDBColorCoding.StatusColors.INFO
-                    0x92 -> "Noise Test Complete" to UDBColorCoding.StatusColors.SUCCESS
-                    else -> "Noise Test Request" to UDBColorCoding.StatusColors.PENDING
-                }
-                0x64 -> "Rebooting..." to UDBColorCoding.StatusColors.WARNING
-                else -> "Ready" to UDBColorCoding.StatusColors.SUCCESS
+            // Map register values to ReleaseState enum (same as RC/RI does)
+            val releaseState = when (currentRStateRpt) {
+                0x01 -> ReleaseState.IDLE_ACK
+                0x11 -> ReleaseState.INIT_PENDING
+                0x12 -> ReleaseState.INIT_OK
+                0x13 -> ReleaseState.INIT_FAIL
+                0x21 -> ReleaseState.CON_ID1
+                0x22 -> ReleaseState.CON_ID2
+                0x23 -> ReleaseState.CON_OK
+                0x31 -> ReleaseState.RNG_SINGLE_PENDING
+                0x32 -> ReleaseState.RNG_SINGLE_OK
+                0x33 -> ReleaseState.RNG_SINGLE_FAIL
+                0x41 -> ReleaseState.RNG_CONT_PENDING
+                0x42 -> ReleaseState.RNG_CONT_OK
+                0x43 -> ReleaseState.RNG_CONT_FAIL
+                0x51 -> ReleaseState.AT_ARM_PENDING
+                0x52 -> ReleaseState.AT_ARM_OK
+                0x53 -> ReleaseState.AT_ARM_FAIL
+                0x54 -> ReleaseState.AT_TRG_PENDING
+                0x55 -> ReleaseState.AT_TRG_OK
+                0x56 -> ReleaseState.AT_TRG_FAIL
+                0x61 -> ReleaseState.BCR_PENDING
+                0x62 -> ReleaseState.BCR_OK
+                0x71 -> ReleaseState.PI_QID_PENDING
+                0x72 -> ReleaseState.PI_QID_DETECT
+                0x73 -> ReleaseState.PI_QID_NODETECT
+                0x81 -> ReleaseState.PI_ID_PENDING
+                0x82 -> ReleaseState.PI_ID_DETECT
+                0x83 -> ReleaseState.PI_ID_NODETECT
+                0x91 -> ReleaseState.NT_PENDING
+                0x92 -> ReleaseState.NT_OK
+                0x65 -> ReleaseState.RB_ACK
+                else -> ReleaseState.IDLE_REQ
             }
+
+            // Use same color coding system as RC/RI
+            val statusMessage = UDBColorCoding.getStatusMessage(releaseState)
+            val statusColor = UDBColorCoding.getStateColor(releaseState)
+            val textColor = UDBColorCoding.getTextColor(statusColor)
 
             runOnUiThread {
                 try {
-                    val textColor = UDBColorCoding.getTextColor(color)
-
-                    currentOperationText.text = "Operation: $operation"
-                    currentOperationText.setBackgroundColor(color)
+                    currentOperationText.text = "Operation: $statusMessage"
+                    currentOperationText.setBackgroundColor(statusColor)
                     currentOperationText.setTextColor(textColor)
                     currentOperationText.setPadding(12, 8, 12, 8)
 
