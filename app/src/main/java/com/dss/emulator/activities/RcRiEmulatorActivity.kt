@@ -524,6 +524,7 @@ class RcRiEmulatorActivity : ComponentActivity(), SensorEventListener {
         return !isExpanded
     }
 
+    // Also update setupCommandButtons method to add dialogs for basic operations
     private fun setupCommandButtons() {
         try {
             findViewById<androidx.appcompat.widget.AppCompatButton>(R.id.commandRBButton)?.setOnClickListener {
@@ -539,15 +540,15 @@ class RcRiEmulatorActivity : ComponentActivity(), SensorEventListener {
             }
 
             findViewById<androidx.appcompat.widget.AppCompatButton>(R.id.popupIdleButton)?.setOnClickListener {
-                safeExecute("Idle") { rcriEmulator.popupIdle() }
+                showIdleDialog()
             }
 
             findViewById<androidx.appcompat.widget.AppCompatButton>(R.id.popupInitButton)?.setOnClickListener {
-                safeExecute("Init") { rcriEmulator.popupInit() }
+                showInitDialog()
             }
 
             findViewById<androidx.appcompat.widget.AppCompatButton>(R.id.popupConnectButton)?.setOnClickListener {
-                safeExecute("Connect") { rcriEmulator.popupConnect() }
+                showConnectDialog()
             }
 
             findViewById<androidx.appcompat.widget.AppCompatButton>(R.id.firmwareUpdateButton)?.setOnClickListener {
@@ -579,42 +580,219 @@ class RcRiEmulatorActivity : ComponentActivity(), SensorEventListener {
                 Button(this).apply { text = "TRIGGER" }
             }
 
-            // Set up click listeners with safety
+            // Set up click listeners with dialogs
             popupSrangeButton.setOnClickListener {
-                safeExecute("Single Range") { rcriEmulator.popupSrange() }
+                showSingleRangeDialog()
             }
 
             popupCrangeButton.setOnClickListener {
-                safeExecute("Continuous Range") { rcriEmulator.popupCrange() }
+                showContinuousRangeDialog()
             }
 
             popupTriggerButton.setOnClickListener {
-                safeExecute("Trigger") {
-                    showReleaseConfirmationDialog {
-                        rcriEmulator.popupTrigger()
-                    }
+                showReleaseConfirmationDialog {
+                    rcriEmulator.popupTrigger()
                 }
             }
 
             // Find other buttons if available
             findViewById<Button>(R.id.popupBroadcastButton)?.setOnClickListener {
-                safeExecute("Broadcast") { showBroadcastDialog() }
+                showBroadcastDialog()
             }
 
             findViewById<Button>(R.id.popupPIQIDButton)?.setOnClickListener {
-                safeExecute("Public Quick ID") { rcriEmulator.popupPIQID() }
+                showPublicQuickIDDialog()
             }
 
             findViewById<Button>(R.id.popupPIIDButton)?.setOnClickListener {
-                safeExecute("Public Full ID") { rcriEmulator.popupPIID() }
+                showPublicFullIDDialog()
             }
 
             findViewById<Button>(R.id.popupNTButton)?.setOnClickListener {
-                safeExecute("Noise Test") { rcriEmulator.popupNT() }
+                showNoiseTestDialog()
             }
 
         } catch (e: Exception) {
             Log.e("RcRiEmulatorActivity", "Error setting up popup buttons: ${e.message}")
+        }
+    }
+
+    // 1. Single Range Dialog
+    private fun showSingleRangeDialog() {
+        try {
+            AlertDialog.Builder(this)
+                .setTitle("📏 Single Range Measurement")
+                .setMessage("This will perform a single acoustic range measurement to the release device.\n\n" +
+                        "Current State: ${currentState}\n" +
+                        "Last Range: ${currentRange/100.0}m\n" +
+                        "Retry Count: $currentRetryCount\n\n" +
+                        "Ready to proceed?")
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .setPositiveButton("START RANGING") { _, _ ->
+                    safeExecute("Single Range") { rcriEmulator.popupSrange() }
+                }
+                .setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
+                .show()
+        } catch (e: Exception) {
+            Log.e("RcRiEmulatorActivity", "Error showing single range dialog: ${e.message}")
+        }
+    }
+
+    // 2. Continuous Range Dialog
+    private fun showContinuousRangeDialog() {
+        try {
+            AlertDialog.Builder(this)
+                .setTitle("📏 Continuous Range Measurement")
+                .setMessage("This will start continuous acoustic ranging to the release device.\n\n" +
+                        "• Measurements will be taken periodically\n" +
+                        "• Real-time range updates will be displayed\n" +
+                        "• This will continue until stopped\n\n" +
+                        "Current State: ${currentState}\n" +
+                        "Ready to start continuous ranging?")
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .setPositiveButton("START CONTINUOUS") { _, _ ->
+                    safeExecute("Continuous Range") { rcriEmulator.popupCrange() }
+                }
+                .setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
+                .show()
+        } catch (e: Exception) {
+            Log.e("RcRiEmulatorActivity", "Error showing continuous range dialog: ${e.message}")
+        }
+    }
+
+    // 3. Public Quick ID Dialog
+    private fun showPublicQuickIDDialog() {
+        try {
+            AlertDialog.Builder(this)
+                .setTitle("🔍 Public Quick ID Interrogate")
+                .setMessage("This will send a public interrogate signal to detect nearby fishing gear with Quick ID response.\n\n" +
+                        "• Searches for quick identification signals\n" +
+                        "• Faster than full ID but less detailed\n" +
+                        "• Range: up to ${currentRange/100.0}m\n" +
+                        "• Noise level: ${com.dss.emulator.register.Registers.AR_NOISE_DB.getValue()}dB\n\n" +
+                        "Continue with Quick ID search?")
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .setPositiveButton("START SEARCH") { _, _ ->
+                    safeExecute("Public Quick ID") { rcriEmulator.popupPIQID() }
+                }
+                .setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
+                .show()
+        } catch (e: Exception) {
+            Log.e("RcRiEmulatorActivity", "Error showing public quick ID dialog: ${e.message}")
+        }
+    }
+
+    // 4. Public Full ID Dialog
+    private fun showPublicFullIDDialog() {
+        try {
+            AlertDialog.Builder(this)
+                .setTitle("🔍 Public Full ID Interrogate")
+                .setMessage("This will send a public interrogate signal to detect nearby fishing gear with Full ID response.\n\n" +
+                        "• Searches for complete identification signals\n" +
+                        "• More detailed than Quick ID but takes longer\n" +
+                        "• Range: up to ${currentRange/100.0}m\n" +
+                        "• Noise level: ${com.dss.emulator.register.Registers.AR_NOISE_DB.getValue()}dB\n\n" +
+                        "Continue with Full ID search?")
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .setPositiveButton("START SEARCH") { _, _ ->
+                    safeExecute("Public Full ID") { rcriEmulator.popupPIID() }
+                }
+                .setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
+                .show()
+        } catch (e: Exception) {
+            Log.e("RcRiEmulatorActivity", "Error showing public full ID dialog: ${e.message}")
+        }
+    }
+
+    // 5. Noise Test Dialog
+    private fun showNoiseTestDialog() {
+        try {
+            AlertDialog.Builder(this)
+                .setTitle("🔊 Acoustic Noise Test")
+                .setMessage("This will perform an acoustic noise level measurement.\n\n" +
+                        "• Measures ambient underwater noise\n" +
+                        "• Helps optimize detection settings\n" +
+                        "• Current noise level: ${com.dss.emulator.register.Registers.AR_NOISE_DB.getValue()}dB\n" +
+                        "• Detection threshold: ${com.dss.emulator.register.Registers.AR_THOLD_DB.getValue()}dB\n\n" +
+                        "Start noise measurement?")
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .setPositiveButton("START TEST") { _, _ ->
+                    safeExecute("Noise Test") { rcriEmulator.popupNT() }
+                }
+                .setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
+                .show()
+        } catch (e: Exception) {
+            Log.e("RcRiEmulatorActivity", "Error showing noise test dialog: ${e.message}")
+        }
+    }
+
+    // 6. Idle Dialog
+    private fun showIdleDialog() {
+        try {
+            AlertDialog.Builder(this)
+                .setTitle("💤 Return to Idle State")
+                .setMessage("This will return the system to idle state.\n\n" +
+                        "• All active operations will be stopped\n" +
+                        "• Device will be ready for new commands\n" +
+                        "• Current state: ${currentState}\n\n" +
+                        "Are you sure you want to return to idle?")
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setPositiveButton("GO IDLE") { _, _ ->
+                    safeExecute("Idle") { rcriEmulator.popupIdle() }
+                }
+                .setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
+                .show()
+        } catch (e: Exception) {
+            Log.e("RcRiEmulatorActivity", "Error showing idle dialog: ${e.message}")
+        }
+    }
+
+    // 7. Initialize Dialog
+    private fun showInitDialog() {
+        try {
+            AlertDialog.Builder(this)
+                .setTitle("🔧 Initialize System")
+                .setMessage("This will initialize the UDB system and prepare it for operations.\n\n" +
+                        "Setup includes:\n" +
+                        "• Device self-test\n" +
+                        "• Acoustic configuration\n" +
+                        "• Communication protocol setup\n" +
+                        "• System parameter validation\n\n" +
+                        "Current state: ${currentState}\n" +
+                        "Ready to initialize?")
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .setPositiveButton("INITIALIZE") { _, _ ->
+                    safeExecute("Init") { rcriEmulator.popupInit() }
+                }
+                .setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
+                .show()
+        } catch (e: Exception) {
+            Log.e("RcRiEmulatorActivity", "Error showing init dialog: ${e.message}")
+        }
+    }
+
+    // 8. Connect Dialog
+    private fun showConnectDialog() {
+        try {
+            AlertDialog.Builder(this)
+                .setTitle("📡 Connect to Release Device")
+                .setMessage("This will establish communication with the acoustic release device.\n\n" +
+                        "Connection process:\n" +
+                        "• ID packet exchange\n" +
+                        "• Authentication verification\n" +
+                        "• Communication link establishment\n\n" +
+                        "Current state: ${currentState}\n" +
+                        "Range: ${currentRange/100.0}m\n" +
+                        "PIN ID: ${com.dss.emulator.register.Registers.PIN_ID.getValue()}\n\n" +
+                        "Ready to connect?")
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .setPositiveButton("CONNECT") { _, _ ->
+                    safeExecute("Connect") { rcriEmulator.popupConnect() }
+                }
+                .setNegativeButton("Cancel") { dialog, _ -> dialog.dismiss() }
+                .show()
+        } catch (e: Exception) {
+            Log.e("RcRiEmulatorActivity", "Error showing connect dialog: ${e.message}")
         }
     }
 
